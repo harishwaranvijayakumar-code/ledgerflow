@@ -1,13 +1,13 @@
 from django.shortcuts import get_object_or_404, redirect, render
 
+from payments.jobs import enqueue_payment
+from payments.models import Payment, PaymentAttempt
+
 from .services import (
     IdempotencyConflict,
     InvalidPaymentRequest,
     create_or_get_payment,
 )
-from payments.services import process_payment
-
-from payments.models import Payment, PaymentAttempt
 
 
 def _metrics():
@@ -85,11 +85,15 @@ def payments_page(request):
 
 def payment_detail(request, payment_id):
     payment = get_object_or_404(
-        Payment.objects.select_related("idempotency_record"),
+        Payment.objects.select_related(
+            "idempotency_record"
+        ),
         id=payment_id,
     )
 
-    attempts = payment.attempts.order_by("created_at")
+    attempts = payment.attempts.order_by(
+        "created_at"
+    )
 
     return render(
         request,
@@ -105,7 +109,9 @@ def simulator_page(request):
     if request.method == "POST":
         amount = request.POST.get("amount")
         currency = request.POST.get("currency")
-        idempotency_key = request.POST.get("idempotency_key")
+        idempotency_key = request.POST.get(
+            "idempotency_key"
+        )
         processor_behavior = request.POST.get(
             "processor_behavior",
             "SUCCESS",
@@ -123,9 +129,9 @@ def simulator_page(request):
             )
 
             if created:
-                process_payment(
+                enqueue_payment(
                     payment,
-                    processor_behavior,
+                    processor_behavior=processor_behavior,
                 )
 
             return redirect(
@@ -158,7 +164,9 @@ def simulator_page(request):
     return render(
         request,
         "simulator.html",
-        {"metrics": _metrics()},
+        {
+            "metrics": _metrics(),
+        },
     )
 
 
@@ -166,5 +174,7 @@ def system_page(request):
     return render(
         request,
         "system.html",
-        {"metrics": _metrics()},
+        {
+            "metrics": _metrics(),
+        },
     )

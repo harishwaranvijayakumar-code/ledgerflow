@@ -22,15 +22,23 @@ class UnknownProcessorOutcome(ProcessorError):
 
 
 class ProcessorSimulator:
-    """
-    Simulates an unreliable external payment processor.
+    def execute(
+        self,
+        behavior="SUCCESS",
+        operation_id=None,
+    ):
+        if operation_id is None:
+            operation_id = str(uuid.uuid4())
 
-    Processor operations are persisted so reconciliation can recover
-    an operation even after the application process restarts.
-    """
+        existing = ProcessorOperation.objects.filter(
+            operation_id=operation_id
+        ).first()
 
-    def execute(self, behavior="SUCCESS"):
-        operation_id = str(uuid.uuid4())
+        if existing is not None:
+            if existing.outcome == ProcessorOperation.Outcome.SUCCESS:
+                return operation_id, "SUCCESS"
+
+            return operation_id, "FAILED"
 
         if behavior == "SUCCESS":
             ProcessorOperation.objects.create(
@@ -66,7 +74,9 @@ class ProcessorSimulator:
                 outcome=ProcessorOperation.Outcome.SUCCESS,
             )
 
-            raise UnknownProcessorOutcome(operation_id)
+            raise UnknownProcessorOutcome(
+                operation_id
+            )
 
         raise ValueError(
             f"Unknown processor behavior: {behavior}"

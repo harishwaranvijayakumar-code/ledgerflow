@@ -96,3 +96,46 @@ class ProcessorOperation(models.Model):
     created_at = models.DateTimeField(
         auto_now_add=True,
     )
+
+class PaymentJob(models.Model):
+    class Status(models.TextChoices):
+        QUEUED = "QUEUED", "Queued"
+        PROCESSING = "PROCESSING", "Processing"
+        COMPLETED = "COMPLETED", "Completed"
+        FAILED = "FAILED", "Failed"
+
+    payment = models.OneToOneField(
+        Payment,
+        on_delete=models.CASCADE,
+        related_name="job",
+    )
+    processor_behavior = models.CharField(
+        max_length=32,
+        default="SUCCESS",
+    )
+    processor_operation_id = models.CharField(
+        max_length=255,
+        blank=True,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.QUEUED,
+    )
+    attempts = models.PositiveIntegerField(default=0)
+    available_at = models.DateTimeField()
+    lease_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+    )
+    last_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
