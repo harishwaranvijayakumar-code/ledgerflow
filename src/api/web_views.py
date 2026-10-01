@@ -1,7 +1,10 @@
+import os
+
 from django.shortcuts import get_object_or_404, redirect, render
 
 from payments.jobs import enqueue_payment
 from payments.models import Payment, PaymentAttempt, PaymentJob
+from payments.worker import process_next_job
 
 from .services import (
     IdempotencyConflict,
@@ -16,28 +19,12 @@ def _metrics():
     jobs = PaymentJob.objects.all()
 
     total = payments.count()
+    succeeded = payments.filter(status=Payment.Status.SUCCEEDED).count()
+    processing = payments.filter(status=Payment.Status.PROCESSING).count()
+    failed = payments.filter(status=Payment.Status.FAILED).count()
+    created = payments.filter(status=Payment.Status.CREATED).count()
 
-    succeeded = payments.filter(
-        status=Payment.Status.SUCCEEDED
-    ).count()
-
-    processing = payments.filter(
-        status=Payment.Status.PROCESSING
-    ).count()
-
-    failed = payments.filter(
-        status=Payment.Status.FAILED
-    ).count()
-
-    created = payments.filter(
-        status=Payment.Status.CREATED
-    ).count()
-
-    success_rate = (
-        round((succeeded / total) * 100, 1)
-        if total
-        else 0
-    )
+    success_rate = round((succeeded / total) * 100, 1) if total else 0
 
     unknown_attempts = attempts.filter(
         status=PaymentAttempt.Status.UNKNOWN
@@ -107,37 +94,25 @@ def _metrics():
     attempt_total = attempts.count()
 
     unknown_rate = (
-        round(
-            (unknown_attempts / attempt_total) * 100,
-            1,
-        )
+        round((unknown_attempts / attempt_total) * 100, 1)
         if attempt_total
         else 0
     )
 
     transient_failure_rate = (
-        round(
-            (transient_failures / attempt_total) * 100,
-            1,
-        )
+        round((transient_failures / attempt_total) * 100, 1)
         if attempt_total
         else 0
     )
 
     permanent_failure_rate = (
-        round(
-            (permanent_failures / attempt_total) * 100,
-            1,
-        )
+        round((permanent_failures / attempt_total) * 100, 1)
         if attempt_total
         else 0
     )
 
     recovery_rate = (
-        round(
-            (recovered_jobs / completed_jobs) * 100,
-            1,
-        )
+        round((recovered_jobs / completed_jobs) * 100, 1)
         if completed_jobs
         else 0
     )
@@ -219,7 +194,6 @@ def payment_detail(request, payment_id):
     )
 
     attempts = payment.attempts.order_by("created_at")
-
     latest_attempt = attempts.last()
 
     processing_seconds = None
@@ -276,6 +250,22 @@ def simulator_page(request):
                     payment,
                     processor_behavior=processor_behavior,
                 )
+
+                inline_worker_enabled = (
+                    os.getenv(
+                        "LEDGERFLOW_INLINE_WORKER",
+                        "false",
+                    ).strip().lower()
+                    in {
+                        "1",
+                        "true",
+                        "yes",
+                        "on",
+                    }
+                )
+
+                if inline_worker_enabled:
+                    process_next_job()
 
             return redirect(
                 "payment-detail",
