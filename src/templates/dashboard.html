@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard · LedgerFlow{% endblock %}
+
+{% block eyebrow %}
+Payment Reliability
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <div class="kicker">OPERATIONS</div>
+
+        <h1>Reliability overview</h1>
+
+        <p>
+            Monitor payment state, processor behavior,
+            retries, and uncertain outcomes from one control plane.
+        </p>
+    </div>
+
+    <a
+        class="button primary"
+        href="{% url 'simulator' %}"
+    >
+        <span>＋</span>
+        Simulate payment
+    </a>
+</div>
+
+
+<section class="metric-grid">
+
+    <div class="metric-card">
+        <div class="metric-label">
+            Total payments
+        </div>
+
+        <div class="metric-value">
+            {{ metrics.total }}
+        </div>
+
+        <div class="metric-meta">
+            Logical payment operations
+        </div>
+    </div>
+
+
+    <div class="metric-card">
+        <div class="metric-label">
+            Success rate
+        </div>
+
+        <div class="metric-value">
+            {{ metrics.success_rate }}
+            <span class="metric-unit">%</span>
+        </div>
+
+        <div class="metric-meta positive">
+            {{ metrics.succeeded }} succeeded
+        </div>
+    </div>
+
+
+    <div class="metric-card">
+        <div class="metric-label">
+            Processing
+        </div>
+
+        <div class="metric-value">
+            {{ metrics.processing }}
+        </div>
+
+        <div class="metric-meta">
+            Awaiting final outcome
+        </div>
+    </div>
+
+
+    <div class="metric-card">
+        <div class="metric-label">
+            Unknown attempts
+        </div>
+
+        <div class="metric-value">
+            {{ metrics.unknown_attempts }}
+        </div>
+
+        <div class="metric-meta">
+            Requires reconciliation
+        </div>
+    </div>
+
+</section>
+
+
+<section class="dashboard-grid">
+
+    <div class="panel payments-panel">
+
+        <div class="panel-header">
+
+            <div>
+                <h2>Recent payments</h2>
+
+                <p>
+                    Latest logical payment operations
+                </p>
+            </div>
+
+            <a
+                href="{% url 'payments' %}"
+                class="text-link"
+            >
+                View all →
+            </a>
+
+        </div>
+
+
+        {% if recent_payments %}
+
+        <div class="table-wrap">
+
+            <table>
+
+                <thead>
+                    <tr>
+                        <th>Payment</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Attempts</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+
+
+                <tbody>
+
+                    {% for payment in recent_payments %}
+
+                    <tr>
+
+                        <td>
+                            <a
+                                class="payment-link"
+                                href="{% url 'payment-detail' payment.id %}"
+                            >
+                                #{{ payment.id|stringformat:"06d" }}
+                            </a>
+
+                            <div class="table-secondary">
+                                {{ payment.currency }}
+                            </div>
+                        </td>
+
+
+                        <td class="amount">
+                            {{ payment.amount }}
+                            <span>
+                                {{ payment.currency }}
+                            </span>
+                        </td>
+
+
+                        <td>
+
+                            <span
+                                class="status status-{{ payment.status|lower }}"
+                            >
+                                <span></span>
+                                {{ payment.get_status_display }}
+                            </span>
+
+                        </td>
+
+
+                        <td>
+                            {{ payment.attempts.count }}
+                        </td>
+
+
+                        <td class="muted">
+                            {{ payment.created_at|date:"M d, H:i" }}
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        {% else %}
+
+        <div class="empty-state">
+
+            <div class="empty-icon">
+                ◈
+            </div>
+
+            <h3>No payments yet</h3>
+
+            <p>
+                Use the processor simulator to create
+                your first payment operation.
+            </p>
+
+            <a
+                class="button secondary"
+                href="{% url 'simulator' %}"
+            >
+                Open simulator
+            </a>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+
+    <div class="panel reliability-panel">
+
+        <div class="panel-header">
+
+            <div>
+                <h2>Reliability signals</h2>
+
+                <p>
+                    Current payment state distribution
+                </p>
+            </div>
+
+        </div>
+
+
+        <div class="signal">
+
+            <div class="signal-top">
+                <span>Succeeded</span>
+                <strong>
+                    {{ metrics.succeeded }}
+                </strong>
+            </div>
+
+            <div class="progress">
+
+                <div
+                    class="progress-fill success"
+                    style="width: {{ metrics.success_rate }}%;"
+                ></div>
+
+            </div>
+
+        </div>
+
+
+        <div class="signal">
+
+            <div class="signal-top">
+                <span>Processing</span>
+
+                <strong>
+                    {{ metrics.processing }}
+                </strong>
+            </div>
+
+            <div class="progress">
+
+                {% if metrics.total %}
+
+                <div
+                    class="progress-fill processing"
+                    style="width: {% widthratio metrics.processing metrics.total 100 %}%;"
+                ></div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+        <div class="signal">
+
+            <div class="signal-top">
+                <span>Failed</span>
+
+                <strong>
+                    {{ metrics.failed }}
+                </strong>
+            </div>
+
+            <div class="progress">
+
+                {% if metrics.total %}
+
+                <div
+                    class="progress-fill failed"
+                    style="width: {% widthratio metrics.failed metrics.total 100 %}%;"
+                ></div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+
+        <div class="reliability-callout">
+
+            <div class="callout-icon">
+                !
+            </div>
+
+            <div>
+
+                <strong>
+                    Unknown is not failure
+                </strong>
+
+                <p>
+                    An uncertain processor response remains
+                    attached to its original operation until
+                    reconciliation.
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<section class="architecture-strip">
+
+    <div class="architecture-title">
+
+        <div class="kicker">
+            SYSTEM MODEL
+        </div>
+
+        <h2>
+            One logical payment. Multiple possible attempts.
+        </h2>
+
+    </div>
+
+
+    <div class="flow">
+
+        <div class="flow-node">
+            <span>01</span>
+            Client request
+        </div>
+
+        <div class="flow-line"></div>
+
+        <div class="flow-node">
+            <span>02</span>
+            Idempotency
+        </div>
+
+        <div class="flow-line"></div>
+
+        <div class="flow-node">
+            <span>03</span>
+            Payment
+        </div>
+
+        <div class="flow-line"></div>
+
+        <div class="flow-node">
+            <span>04</span>
+            Processor
+        </div>
+
+        <div class="flow-line"></div>
+
+        <div class="flow-node">
+            <span>05</span>
+            Reconciliation
+        </div>
+
+    </div>
+
+</section>
+
+{% endblock %}

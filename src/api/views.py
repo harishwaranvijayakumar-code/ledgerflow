@@ -1,9 +1,16 @@
 import json
 
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 
-from payments.services import process_payment
+from payments.models import Payment
+from payments.services import (
+    process_payment,
+    reconcile_payment,
+    retry_payment,
+)
 
 from .services import (
     IdempotencyConflict,
@@ -68,4 +75,37 @@ def create_payment(request):
             "idempotent_replay": not created,
         },
         status=201 if created else 200,
+    )
+
+
+@require_POST
+def reconcile_payment_view(request, payment_id):
+    payment = get_object_or_404(
+        Payment,
+        id=payment_id,
+    )
+
+    reconcile_payment(payment)
+
+    return redirect(
+        "payment-detail",
+        payment_id=payment.id,
+    )
+
+
+@require_POST
+def retry_payment_view(request, payment_id):
+    payment = get_object_or_404(
+        Payment,
+        id=payment_id,
+    )
+
+    retry_payment(
+        payment,
+        behavior="SUCCESS",
+    )
+
+    return redirect(
+        "payment-detail",
+        payment_id=payment.id,
     )

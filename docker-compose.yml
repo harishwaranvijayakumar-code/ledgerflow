@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: ledgerflow-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ledgerflow
+      POSTGRES_USER: ledgerflow
+      POSTGRES_PASSWORD: ledgerflow_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - ledgerflow_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ledgerflow -d ledgerflow",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ledgerflow_postgres_data:

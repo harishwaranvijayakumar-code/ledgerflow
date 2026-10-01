@@ -1,5 +1,7 @@
 import uuid
 
+from .models import ProcessorOperation
+
 
 class ProcessorError(Exception):
     pass
@@ -23,34 +25,61 @@ class ProcessorSimulator:
     """
     Simulates an unreliable external payment processor.
 
-    UNKNOWN deliberately means:
-    the processor may have completed the operation, but LedgerFlow
-    did not receive the response.
+    Processor operations are persisted so reconciliation can recover
+    an operation even after the application process restarts.
     """
-
-    def __init__(self):
-        self.operations = {}
 
     def execute(self, behavior="SUCCESS"):
         operation_id = str(uuid.uuid4())
 
         if behavior == "SUCCESS":
-            self.operations[operation_id] = "SUCCESS"
+            ProcessorOperation.objects.create(
+                operation_id=operation_id,
+                outcome=ProcessorOperation.Outcome.SUCCESS,
+            )
+
             return operation_id, "SUCCESS"
 
         if behavior == "TRANSIENT_FAILURE":
-            self.operations[operation_id] = "FAILED"
-            raise TransientProcessorError("Temporary processor failure")
+            ProcessorOperation.objects.create(
+                operation_id=operation_id,
+                outcome=ProcessorOperation.Outcome.FAILED,
+            )
+
+            raise TransientProcessorError(
+                "Temporary processor failure"
+            )
 
         if behavior == "PERMANENT_FAILURE":
-            self.operations[operation_id] = "FAILED"
-            raise PermanentProcessorError("Permanent processor rejection")
+            ProcessorOperation.objects.create(
+                operation_id=operation_id,
+                outcome=ProcessorOperation.Outcome.FAILED,
+            )
+
+            raise PermanentProcessorError(
+                "Permanent processor rejection"
+            )
 
         if behavior == "UNKNOWN":
-            self.operations[operation_id] = "SUCCESS"
+            ProcessorOperation.objects.create(
+                operation_id=operation_id,
+                outcome=ProcessorOperation.Outcome.SUCCESS,
+            )
+
             raise UnknownProcessorOutcome(operation_id)
 
-        raise ValueError(f"Unknown processor behavior: {behavior}")
+        raise ValueError(
+            f"Unknown processor behavior: {behavior}"
+        )
 
     def get_status(self, operation_id):
-        return self.operations.get(operation_id)
+        operation = (
+            ProcessorOperation.objects
+            .filter(operation_id=operation_id)
+            .first()
+        )
+
+        if operation is None:
+            return None
+
+        return operation.outcome

@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Simulator · LedgerFlow{% endblock %}
+
+{% block eyebrow %}Developer / Simulator{% endblock %}
+
+{% block content %}
+
+<div class="apple-simulator">
+
+    <a
+        href="{% url 'payments' %}"
+        class="apple-back-link"
+    >
+        ‹ Payments
+    </a>
+
+    <header class="simulator-header">
+
+        <div>
+            <div class="apple-detail-kicker">
+                DEVELOPER TOOL
+            </div>
+
+            <h1>Payment simulator</h1>
+
+            <p>
+                Create controlled payment operations and observe
+                how LedgerFlow handles processor behavior.
+            </p>
+        </div>
+
+        <div class="simulator-mode">
+            <span></span>
+            Test mode
+        </div>
+
+    </header>
+
+
+    {% if error %}
+
+    <div class="simulator-error">
+        {{ error }}
+    </div>
+
+    {% endif %}
+
+
+    <form method="post" class="simulator-form">
+
+        {% csrf_token %}
+
+        <section class="simulator-section">
+
+            <div class="simulator-section-title">
+                Payment
+            </div>
+
+            <div class="simulator-fields">
+
+                <label>
+                    <span>Amount</span>
+
+                    <input
+                        type="text"
+                        name="amount"
+                        value="{{ form_data.amount|default:'250.00' }}"
+                        placeholder="250.00"
+                        required
+                    >
+                </label>
+
+
+                <label>
+                    <span>Currency</span>
+
+                    <select name="currency">
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="INR">INR</option>
+                    </select>
+                </label>
+
+            </div>
+
+        </section>
+
+
+        <section class="simulator-section">
+
+            <div class="simulator-section-title">
+                Idempotency
+            </div>
+
+            <label class="simulator-full-field">
+
+                <span>Idempotency key</span>
+
+                <input
+                    type="text"
+                    name="idempotency_key"
+                    value="{{ form_data.idempotency_key|default:'' }}"
+                    placeholder="idem_checkout_001"
+                    required
+                >
+
+                <small>
+                    Reusing this key represents a retry of the same
+                    logical payment.
+                </small>
+
+            </label>
+
+        </section>
+
+
+        <section class="simulator-section">
+
+            <div class="simulator-section-title">
+                Processor behavior
+            </div>
+
+            <div class="behavior-options">
+
+                <label class="behavior-option">
+
+                    <input
+                        type="radio"
+                        name="processor_behavior"
+                        value="SUCCESS"
+                        checked
+                    >
+
+                    <div>
+                        <strong>Success</strong>
+                        <span>
+                            Processor confirms the operation.
+                        </span>
+                    </div>
+
+                </label>
+
+
+                <label class="behavior-option">
+
+                    <input
+                        type="radio"
+                        name="processor_behavior"
+                        value="TRANSIENT_FAILURE"
+                    >
+
+                    <div>
+                        <strong>Transient failure</strong>
+                        <span>
+                            Temporary failure that may be retried.
+                        </span>
+                    </div>
+
+                </label>
+
+
+                <label class="behavior-option">
+
+                    <input
+                        type="radio"
+                        name="processor_behavior"
+                        value="PERMANENT_FAILURE"
+                    >
+
+                    <div>
+                        <strong>Permanent failure</strong>
+                        <span>
+                            Processor rejects the operation.
+                        </span>
+                    </div>
+
+                </label>
+
+
+                <label class="behavior-option">
+
+                    <input
+                        type="radio"
+                        name="processor_behavior"
+                        value="UNKNOWN"
+                    >
+
+                    <div>
+                        <strong>Unknown outcome</strong>
+                        <span>
+                            Processor may have completed the operation,
+                            but the response is lost.
+                        </span>
+                    </div>
+
+                </label>
+
+            </div>
+
+        </section>
+
+
+        <div class="simulator-actions">
+
+            <button
+                type="submit"
+                class="apple-primary-button"
+            >
+                Run simulation
+            </button>
+
+            <a
+                href="{% url 'payments' %}"
+                class="apple-secondary-button"
+            >
+                Cancel
+            </a>
+
+        </div>
+
+    </form>
+
+
+    <section class="simulator-explanation">
+
+        <div>
+            <strong>What this tests</strong>
+
+            <p>
+                Each simulation creates one logical payment operation.
+                Processor behavior controls the simulated external
+                system, while the idempotency key remains the identity
+                of the payment request.
+            </p>
+        </div>
+
+    </section>
+
+</div>
+
+{% endblock %}

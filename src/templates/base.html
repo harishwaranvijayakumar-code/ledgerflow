@@ -1,0 +1,233 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {% block title %}LedgerFlow{% endblock %}
+    </title>
+
+    <link
+        rel="stylesheet"
+        href="{% static 'css/app.css' %}"
+    >
+</head>
+
+<body>
+
+<div class="app-shell">
+
+    <aside class="sidebar">
+
+        <div class="brand">
+            <div class="brand-mark">L</div>
+
+            <div class="brand-copy">
+                <div class="brand-name">
+                    LedgerFlow
+                </div>
+
+                <div class="brand-subtitle">
+                    Payment Reliability
+                </div>
+            </div>
+        </div>
+
+
+        <nav class="nav">
+
+            <div class="nav-section">
+                Overview
+            </div>
+
+            <a
+                href="{% url 'dashboard' %}"
+                class="nav-item {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+            >
+                <span class="nav-icon">⌂</span>
+                <span>Overview</span>
+            </a>
+
+
+            <div class="nav-section">
+                Payments
+            </div>
+
+            <a
+                href="{% url 'payments' %}"
+                class="nav-item {% if request.resolver_match.url_name == 'payments' or request.resolver_match.url_name == 'payment-detail' %}active{% endif %}"
+            >
+                <span class="nav-icon">◈</span>
+                <span>All payments</span>
+            </a>
+
+            <a
+                href="#"
+                class="nav-item"
+            >
+                <span class="nav-icon">◷</span>
+                <span>Processing</span>
+            </a>
+
+            <a
+                href="#"
+                class="nav-item"
+            >
+                <span class="nav-icon">×</span>
+                <span>Failed</span>
+            </a>
+
+            <a
+                href="#"
+                class="nav-item"
+            >
+                <span class="nav-icon">!</span>
+                <span>Unknown</span>
+
+                {% if metrics.unknown_attempts %}
+                <span class="nav-count">
+                    {{ metrics.unknown_attempts }}
+                </span>
+                {% endif %}
+            </a>
+
+
+            <div class="nav-section">
+                Reliability
+            </div>
+
+            <a
+                href="#"
+                class="nav-item"
+            >
+                <span class="nav-icon">≡</span>
+                <span>Attempts</span>
+            </a>
+
+            <a
+                href="#"
+                class="nav-item"
+            >
+                <span class="nav-icon">↻</span>
+                <span>Reconciliation</span>
+            </a>
+
+
+            <div class="nav-section">
+                Developer
+            </div>
+
+            <a
+                href="{% url 'simulator' %}"
+                class="nav-item {% if request.resolver_match.url_name == 'simulator' %}active{% endif %}"
+            >
+                <span class="nav-icon">▷</span>
+                <span>Simulator</span>
+            </a>
+
+            <a
+                href="#"
+                class="nav-item"
+            >
+                <span class="nav-icon">{ }</span>
+                <span>API</span>
+            </a>
+
+            <a
+                href="{% url 'system' %}"
+                class="nav-item {% if request.resolver_match.url_name == 'system' %}active{% endif %}"
+            >
+                <span class="nav-icon">⌁</span>
+                <span>System</span>
+            </a>
+
+        </nav>
+
+
+        <div class="sidebar-footer">
+
+            <div class="mode-row">
+
+                <span class="mode-indicator"></span>
+
+                <span>
+                    Test mode
+                </span>
+
+            </div>
+
+            <div class="sidebar-meta">
+                LedgerFlow v0.1
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <main class="main">
+
+        <header class="topbar">
+
+            <div class="breadcrumb">
+
+                <span class="breadcrumb-muted">
+                    LedgerFlow
+                </span>
+
+                <span class="breadcrumb-separator">
+                    /
+                </span>
+
+                <span>
+                    {% block eyebrow %}
+                    Overview
+                    {% endblock %}
+                </span>
+
+            </div>
+
+
+            <div class="topbar-actions">
+
+                <div class="environment-badge">
+                    <span class="mode-indicator"></span>
+                    Test mode
+                </div>
+
+                <div class="system-status">
+                    <span class="status-dot"></span>
+                    Operational
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <div class="content">
+
+            {% block content %}
+            {% endblock %}
+
+        </div>
+
+    </main>
+
+</div>
+
+
+<script src="{% static 'js/app.js' %}"></script>
+
+{% block scripts %}
+{% endblock %}
+
+</body>
+</html>

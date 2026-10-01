@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}Payments · LedgerFlow{% endblock %}
+
+{% block eyebrow %}Payments{% endblock %}
+
+{% block content %}
+
+<div class="apple-payments">
+
+    <section class="apple-page-intro">
+        <div>
+            <div class="apple-kicker">PAYMENTS</div>
+
+            <h1>Payments</h1>
+
+            <p>
+                Payment operations, processing attempts, and reliability state.
+            </p>
+        </div>
+
+        <a
+            href="{% url 'simulator' %}"
+            class="apple-primary-button"
+        >
+            Create test payment
+        </a>
+    </section>
+
+
+    <section class="apple-metrics">
+
+        <div class="apple-metric">
+            <span>Total</span>
+            <strong>{{ metrics.total }}</strong>
+        </div>
+
+        <div class="apple-metric">
+            <span>Succeeded</span>
+            <strong class="metric-success">
+                {{ metrics.succeeded }}
+            </strong>
+        </div>
+
+        <div class="apple-metric">
+            <span>Processing</span>
+            <strong class="metric-processing">
+                {{ metrics.processing }}
+            </strong>
+        </div>
+
+        <div class="apple-metric">
+            <span>Unknown</span>
+            <strong class="metric-unknown">
+                {{ metrics.unknown_attempts }}
+            </strong>
+        </div>
+
+    </section>
+
+
+    {% if metrics.unknown_attempts %}
+    <div class="apple-notice apple-notice-warning">
+        <span class="apple-notice-dot"></span>
+
+        <div>
+            <strong>
+                {{ metrics.unknown_attempts }} unresolved processor
+                outcome{{ metrics.unknown_attempts|pluralize }}
+            </strong>
+
+            <span>
+                Reconciliation is required before another processor
+                operation is created.
+            </span>
+        </div>
+    </div>
+    {% endif %}
+
+
+    <section class="apple-workspace">
+
+        <div class="apple-toolbar">
+
+            <label class="apple-search">
+                <span>⌕</span>
+
+                <input
+                    id="payment-search"
+                    type="search"
+                    placeholder="Search payments"
+                    autocomplete="off"
+                >
+            </label>
+
+            <div class="apple-filters">
+
+                <select id="status-filter">
+                    <option value="">All statuses</option>
+                    <option value="SUCCEEDED">Succeeded</option>
+                    <option value="PROCESSING">Processing</option>
+                    <option value="FAILED">Failed</option>
+                </select>
+
+                <select id="currency-filter">
+                    <option value="">All currencies</option>
+                </select>
+
+            </div>
+
+        </div>
+
+
+        <div class="apple-table">
+
+            <div class="apple-table-header">
+                <span>Payment</span>
+                <span>Status</span>
+                <span>Amount</span>
+                <span>Attempts</span>
+                <span>Created</span>
+            </div>
+
+
+            {% for payment in payments %}
+
+            <a
+                href="{% url 'payment-detail' payment.id %}"
+                class="apple-payment-row"
+                data-payment-id="pay_{{ payment.id|stringformat:'06d' }}"
+                data-idempotency="{{ payment.idempotency_record.key }}"
+                data-status="{{ payment.status }}"
+                data-currency="{{ payment.currency }}"
+            >
+
+                <div class="apple-payment-main">
+
+                    <span class="apple-payment-id">
+                        pay_{{ payment.id|stringformat:"06d" }}
+                    </span>
+
+                    <span class="apple-payment-key">
+                        {{ payment.idempotency_record.key }}
+                    </span>
+
+                </div>
+
+
+                <div class="apple-status">
+
+                    <span
+                        class="
+                            apple-status-dot
+                            status-{{ payment.status|lower }}
+                        "
+                    ></span>
+
+                    <span>
+                        {{ payment.get_status_display }}
+                    </span>
+
+                </div>
+
+
+                <div class="apple-amount">
+                    {{ payment.amount }}
+                    <small>{{ payment.currency }}</small>
+                </div>
+
+
+                <div class="apple-attempts">
+                    {{ payment.attempts.count }}
+                </div>
+
+
+                <time class="apple-time">
+                    {{ payment.created_at|date:"M j, Y · H:i" }}
+                </time>
+
+            </a>
+
+            {% empty %}
+
+            <div class="apple-empty">
+
+                <h2>No payments yet.</h2>
+
+                <p>
+                    Create a test payment to begin investigating
+                    payment behavior.
+                </p>
+
+                <a
+                    href="{% url 'simulator' %}"
+                    class="apple-secondary-button"
+                >
+                    Open simulator
+                </a>
+
+            </div>
+
+            {% endfor %}
+
+            <div
+                id="filtered-empty"
+                class="apple-empty apple-filtered-empty"
+                hidden
+            >
+                <h2>No matching payments.</h2>
+                <p>
+                    Try another search or filter.
+                </p>
+            </div>
+
+        </div>
+
+
+        <div class="apple-table-footer">
+            <span id="payment-count">
+                {{ payments|length }} payment{{ payments|length|pluralize }}
+            </span>
+
+            <span>Test environment</span>
+        </div>
+
+    </section>
+
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+
+<script>
+(function () {
+    const search = document.getElementById("payment-search");
+    const status = document.getElementById("status-filter");
+    const currency = document.getElementById("currency-filter");
+    const rows = Array.from(
+        document.querySelectorAll(".apple-payment-row")
+    );
+    const empty = document.getElementById("filtered-empty");
+    const count = document.getElementById("payment-count");
+
+    const currencies = [
+        ...new Set(
+            rows.map(row => row.dataset.currency)
+        )
+    ];
+
+    currencies.forEach(value => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = value;
+        currency.appendChild(option);
+    });
+
+    function filterRows() {
+        const query = search.value.trim().toLowerCase();
+        const selectedStatus = status.value;
+        const selectedCurrency = currency.value;
+
+        let visible = 0;
+
+        rows.forEach(row => {
+            const matchesQuery =
+                !query ||
+                row.dataset.paymentId.toLowerCase().includes(query) ||
+                row.dataset.idempotency.toLowerCase().includes(query);
+
+            const matchesStatus =
+                !selectedStatus ||
+                row.dataset.status === selectedStatus;
+
+            const matchesCurrency =
+                !selectedCurrency ||
+                row.dataset.currency === selectedCurrency;
+
+            const show =
+                matchesQuery &&
+                matchesStatus &&
+                matchesCurrency;
+
+            row.hidden = !show;
+
+            if (show) {
+                visible += 1;
+            }
+        });
+
+        empty.hidden = visible !== 0;
+
+        count.textContent =
+            `${visible} payment${visible === 1 ? "" : "s"}`;
+    }
+
+    search.addEventListener("input", filterRows);
+    status.addEventListener("change", filterRows);
+    currency.addEventListener("change", filterRows);
+})();
+</script>
+
+{% endblock %}

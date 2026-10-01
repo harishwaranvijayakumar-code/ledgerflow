@@ -1,0 +1,467 @@
+{% extends "base.html" %}
+
+{% block title %}
+Payment {{ payment.id }} · LedgerFlow
+{% endblock %}
+
+{% block eyebrow %}
+Payments / pay_{{ payment.id|stringformat:"06d" }}
+{% endblock %}
+
+{% block content %}
+
+<div class="apple-payment-detail">
+
+    <a
+        href="{% url 'payments' %}"
+        class="apple-back-link"
+    >
+        ‹ Payments
+    </a>
+
+
+    <header class="payment-detail-hero">
+
+        <div>
+
+            <div class="apple-detail-kicker">
+                PAYMENT OPERATION
+            </div>
+
+            <h1>
+                pay_{{ payment.id|stringformat:"06d" }}
+            </h1>
+
+            <div class="payment-detail-status">
+
+                <span
+                    class="
+                        apple-status-dot
+                        status-{{ payment.status|lower }}
+                    "
+                ></span>
+
+                {{ payment.get_status_display }}
+
+            </div>
+
+        </div>
+
+
+        <div class="payment-detail-amount">
+            <strong>{{ payment.amount }}</strong>
+            <span>{{ payment.currency }}</span>
+        </div>
+
+    </header>
+
+
+    {% if payment.status == "PROCESSING" %}
+
+    <div class="detail-notice">
+
+        <span class="detail-notice-dot"></span>
+
+        <div>
+            <strong>Payment is still processing.</strong>
+
+            <span>
+                The final processor outcome has not been established.
+            </span>
+        </div>
+
+    </div>
+
+    {% endif %}
+
+
+    {% if payment.status == "FAILED" %}
+
+    <div class="detail-notice detail-notice-failed">
+
+        <span class="detail-notice-dot"></span>
+
+        <div>
+            <strong>Payment failed.</strong>
+
+            <span>
+                Review the processing attempts below.
+            </span>
+        </div>
+
+    </div>
+
+    {% endif %}
+
+
+    <section class="detail-section">
+
+        <div class="detail-section-heading">
+            <span>Payment</span>
+        </div>
+
+
+        <div class="detail-grid">
+
+            <div class="detail-field">
+
+                <span>Payment ID</span>
+
+                <strong>
+                    pay_{{ payment.id|stringformat:"06d" }}
+                </strong>
+
+            </div>
+
+
+            <div class="detail-field">
+
+                <span>Status</span>
+
+                <strong>
+                    {{ payment.get_status_display }}
+                </strong>
+
+            </div>
+
+
+            <div class="detail-field">
+
+                <span>Created</span>
+
+                <strong>
+                    {{ payment.created_at|date:"M j, Y · H:i:s" }}
+                </strong>
+
+            </div>
+
+
+            <div class="detail-field">
+
+                <span>Updated</span>
+
+                <strong>
+                    {{ payment.updated_at|date:"M j, Y · H:i:s" }}
+                </strong>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="detail-section">
+
+        <div class="detail-section-heading">
+            <span>Idempotency</span>
+        </div>
+
+
+        <div class="detail-grid">
+
+            <div class="detail-field detail-field-wide">
+
+                <span>Idempotency key</span>
+
+                <code>
+                    {{ payment.idempotency_record.key }}
+                </code>
+
+            </div>
+
+
+            <div class="detail-field detail-field-wide">
+
+                <span>Request fingerprint</span>
+
+                <code>
+                    {{ payment.idempotency_record.request_fingerprint }}
+                </code>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <section class="detail-section">
+
+        <div class="detail-section-heading detail-section-heading-row">
+
+            <span>Processing history</span>
+
+            <span class="detail-section-meta">
+
+                {{ attempts|length }}
+                attempt{{ attempts|length|pluralize }}
+
+            </span>
+
+        </div>
+
+
+        {% for attempt in attempts %}
+
+        <article class="attempt">
+
+            <div class="attempt-index">
+                {{ forloop.counter|stringformat:"02d" }}
+            </div>
+
+
+            <div class="attempt-content">
+
+                <div class="attempt-heading">
+
+                    <div>
+
+                        <h2>
+                            Attempt #{{ forloop.counter|stringformat:"03d" }}
+                        </h2>
+
+
+                        <div class="attempt-status">
+
+                            <span
+                                class="
+                                    apple-status-dot
+                                    status-{{ attempt.status|lower }}
+                                "
+                            ></span>
+
+                            {{ attempt.get_status_display }}
+
+                        </div>
+
+                    </div>
+
+
+                    <time>
+                        {{ attempt.created_at|date:"M j, Y · H:i:s" }}
+                    </time>
+
+                </div>
+
+
+                <div class="attempt-details">
+
+                    <div>
+
+                        <span>Processor operation</span>
+
+                        <code>
+                            {% if attempt.processor_operation_id %}
+                                {{ attempt.processor_operation_id }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </code>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>Completed</span>
+
+                        <strong>
+
+                            {% if attempt.completed_at %}
+
+                                {{ attempt.completed_at|date:"M j, Y · H:i:s" }}
+
+                            {% else %}
+
+                                —
+
+                            {% endif %}
+
+                        </strong>
+
+                    </div>
+
+                </div>
+
+
+                {% if attempt.failure_type %}
+
+                <div class="attempt-details">
+
+                    <div>
+
+                        <span>Failure type</span>
+
+                        <strong>
+                            {{ attempt.failure_type }}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+                {% endif %}
+
+
+                {% if attempt.error %}
+
+                <div class="attempt-error">
+                    {{ attempt.error }}
+                </div>
+
+                {% endif %}
+
+
+                {% if attempt.status == "UNKNOWN" %}
+
+                <div class="unknown-explanation">
+
+                    <div>
+
+                        <strong>
+                            Processor outcome is unknown.
+                        </strong>
+
+                        <span>
+                            The processor may have completed the operation,
+                            but LedgerFlow did not receive a definitive
+                            response.
+                        </span>
+
+                    </div>
+
+
+                    <form
+                        method="post"
+                        action="{% url 'reconcile-payment' payment.id %}"
+                    >
+
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="apple-action-button"
+                        >
+                            Reconcile operation
+                        </button>
+
+                    </form>
+
+                </div>
+
+                {% endif %}
+
+
+                {% if attempt.status == "FAILED" and attempt.failure_type == "TRANSIENT" %}
+
+                <div class="retry-explanation">
+
+                    <div>
+
+                        <strong>
+                            Temporary processor failure.
+                        </strong>
+
+                        <span>
+                            This attempt is eligible for another
+                            processing attempt.
+                        </span>
+
+                    </div>
+
+
+                    <form
+                        method="post"
+                        action="{% url 'retry-payment' payment.id %}"
+                    >
+
+                        {% csrf_token %}
+
+                        <button
+                            type="submit"
+                            class="apple-action-button"
+                        >
+                            Retry payment
+                        </button>
+
+                    </form>
+
+                </div>
+
+                {% endif %}
+
+            </div>
+
+        </article>
+
+
+        {% empty %}
+
+        <div class="detail-empty">
+            No processing attempts have been recorded.
+        </div>
+
+        {% endfor %}
+
+    </section>
+
+
+    <section class="detail-section">
+
+        <div class="detail-section-heading">
+            <span>State</span>
+        </div>
+
+
+        <div class="state-timeline">
+
+            <div class="state-item">
+
+                <span class="state-dot"></span>
+
+                <div>
+
+                    <strong>Created</strong>
+
+                    <span>
+                        {{ payment.created_at|date:"M j, Y · H:i:s" }}
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            {% if attempts %}
+
+            <div class="state-line"></div>
+
+
+            <div class="state-item">
+
+                <span class="state-dot state-dot-active"></span>
+
+                <div>
+
+                    <strong>
+                        Processing attempt recorded
+                    </strong>
+
+                    <span>
+                        {{ attempts.0.created_at|date:"M j, Y · H:i:s" }}
+                    </span>
+
+                </div>
+
+            </div>
+
+            {% endif %}
+
+        </div>
+
+    </section>
+
+</div>
+
+{% endblock %}
