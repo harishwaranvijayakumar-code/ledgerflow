@@ -1,458 +1,217 @@
 {% extends "base.html" %}
 
 {% block title %}
-Payment {{ payment.id }} · LedgerFlow
-{% endblock %}
-
-{% block eyebrow %}
-Payments / pay_{{ payment.id|stringformat:"06d" }}
+    Payment #{{ payment.id }} · LedgerFlow
 {% endblock %}
 
 {% block content %}
 
-<div class="apple-payment-detail">
+<section
+    class="payment-detail-page"
+    data-payment-state="{{ payment.status }}"
+>
 
-    <a
-        href="{% url 'payments' %}"
-        class="apple-back-link"
-    >
-        ‹ Payments
-    </a>
+    <div class="payment-detail-topbar">
+
+        <a
+            class="back-link"
+            href="{% url 'payments' %}"
+        >
+            <span>←</span>
+            Payments
+        </a>
+
+        <div class="payment-detail-context">
+            TEST MODE
+        </div>
+
+    </div>
 
 
-    <header class="payment-detail-hero">
+    <section class="payment-hero">
 
-        <div>
+        <div class="payment-hero-main">
 
-            <div class="apple-detail-kicker">
-                PAYMENT OPERATION
+            <div
+                class="payment-orb
+                {% if payment.status == 'SUCCEEDED' %}
+                    payment-orb-success
+                {% elif payment.status == 'FAILED' %}
+                    payment-orb-failed
+                {% elif payment.status == 'PROCESSING' %}
+                    payment-orb-processing
+                {% else %}
+                    payment-orb-created
+                {% endif %}"
+            >
+
+                <div class="payment-orb-core"></div>
+
             </div>
 
-            <h1>
-                pay_{{ payment.id|stringformat:"06d" }}
-            </h1>
 
-            <div class="payment-detail-status">
+            <div class="payment-identity">
+
+                <div class="eyebrow">
+                    PAYMENT
+                </div>
+
+                <div class="payment-number">
+                    #{{ payment.id }}
+                </div>
+
+                <div class="payment-created">
+                    Created
+                    {{ payment.created_at|date:"M j, Y · H:i:s" }}
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="payment-hero-value">
+
+            <div class="payment-hero-amount">
+                {{ payment.amount }}
+            </div>
+
+            <div class="payment-hero-currency">
+                {{ payment.currency }}
+            </div>
+
+            <span
+                class="payment-status status-{{ payment.status|lower }}"
+            >
 
                 <span
-                    class="
-                        apple-status-dot
-                        status-{{ payment.status|lower }}
-                    "
+                    class="payment-status-indicator"
                 ></span>
 
                 {{ payment.get_status_display }}
 
+            </span>
+
+        </div>
+
+    </section>
+
+
+    {% if payment.status == 'PROCESSING' and latest_attempt %}
+        {% if latest_attempt.status == 'UNKNOWN' %}
+
+        <section class="payment-action-banner payment-action-warning">
+
+            <div class="payment-action-copy">
+
+                <span class="payment-action-label">
+                    OUTCOME REQUIRES RECONCILIATION
+                </span>
+
+                <strong>
+                    The processor outcome is currently uncertain.
+                </strong>
+
+                <p>
+                    Reconciliation checks the original processor
+                    operation rather than creating a duplicate operation.
+                </p>
+
             </div>
 
-        </div>
+            <form
+                method="post"
+                action="{% url 'payment-reconcile' payment.id %}"
+            >
+                {% csrf_token %}
 
+                <button
+                    type="submit"
+                    class="button button-dark"
+                >
+                    Reconcile
+                    <span class="button-arrow">↗</span>
+                </button>
 
-        <div class="payment-detail-amount">
-            <strong>{{ payment.amount }}</strong>
-            <span>{{ payment.currency }}</span>
-        </div>
+            </form>
 
-    </header>
+        </section>
 
-
-    {% if payment.status == "PROCESSING" %}
-
-    <div class="detail-notice">
-
-        <span class="detail-notice-dot"></span>
-
-        <div>
-            <strong>Payment is still processing.</strong>
-
-            <span>
-                The final processor outcome has not been established.
-            </span>
-        </div>
-
-    </div>
-
+        {% endif %}
     {% endif %}
 
 
-    {% if payment.status == "FAILED" %}
+    {% if payment.status == 'PROCESSING' and latest_attempt %}
+        {% if latest_attempt.status == 'FAILED' %}
+            {% if latest_attempt.failure_type == 'TRANSIENT' %}
 
-    <div class="detail-notice detail-notice-failed">
+            <section class="payment-action-banner">
 
-        <span class="detail-notice-dot"></span>
+                <div class="payment-action-copy">
 
-        <div>
-            <strong>Payment failed.</strong>
-
-            <span>
-                Review the processing attempts below.
-            </span>
-        </div>
-
-    </div>
-
-    {% endif %}
-
-
-    <section class="detail-section">
-
-        <div class="detail-section-heading">
-            <span>Payment</span>
-        </div>
-
-
-        <div class="detail-grid">
-
-            <div class="detail-field">
-
-                <span>Payment ID</span>
-
-                <strong>
-                    pay_{{ payment.id|stringformat:"06d" }}
-                </strong>
-
-            </div>
-
-
-            <div class="detail-field">
-
-                <span>Status</span>
-
-                <strong>
-                    {{ payment.get_status_display }}
-                </strong>
-
-            </div>
-
-
-            <div class="detail-field">
-
-                <span>Created</span>
-
-                <strong>
-                    {{ payment.created_at|date:"M j, Y · H:i:s" }}
-                </strong>
-
-            </div>
-
-
-            <div class="detail-field">
-
-                <span>Updated</span>
-
-                <strong>
-                    {{ payment.updated_at|date:"M j, Y · H:i:s" }}
-                </strong>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <section class="detail-section">
-
-        <div class="detail-section-heading">
-            <span>Idempotency</span>
-        </div>
-
-
-        <div class="detail-grid">
-
-            <div class="detail-field detail-field-wide">
-
-                <span>Idempotency key</span>
-
-                <code>
-                    {{ payment.idempotency_record.key }}
-                </code>
-
-            </div>
-
-
-            <div class="detail-field detail-field-wide">
-
-                <span>Request fingerprint</span>
-
-                <code>
-                    {{ payment.idempotency_record.request_fingerprint }}
-                </code>
-
-            </div>
-
-        </div>
-
-    </section>
-
-
-    <section class="detail-section">
-
-        <div class="detail-section-heading detail-section-heading-row">
-
-            <span>Processing history</span>
-
-            <span class="detail-section-meta">
-
-                {{ attempts|length }}
-                attempt{{ attempts|length|pluralize }}
-
-            </span>
-
-        </div>
-
-
-        {% for attempt in attempts %}
-
-        <article class="attempt">
-
-            <div class="attempt-index">
-                {{ forloop.counter|stringformat:"02d" }}
-            </div>
-
-
-            <div class="attempt-content">
-
-                <div class="attempt-heading">
-
-                    <div>
-
-                        <h2>
-                            Attempt #{{ forloop.counter|stringformat:"03d" }}
-                        </h2>
-
-
-                        <div class="attempt-status">
-
-                            <span
-                                class="
-                                    apple-status-dot
-                                    status-{{ attempt.status|lower }}
-                                "
-                            ></span>
-
-                            {{ attempt.get_status_display }}
-
-                        </div>
-
-                    </div>
-
-
-                    <time>
-                        {{ attempt.created_at|date:"M j, Y · H:i:s" }}
-                    </time>
-
-                </div>
-
-
-                <div class="attempt-details">
-
-                    <div>
-
-                        <span>Processor operation</span>
-
-                        <code>
-                            {% if attempt.processor_operation_id %}
-                                {{ attempt.processor_operation_id }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </code>
-
-                    </div>
-
-
-                    <div>
-
-                        <span>Completed</span>
-
-                        <strong>
-
-                            {% if attempt.completed_at %}
-
-                                {{ attempt.completed_at|date:"M j, Y · H:i:s" }}
-
-                            {% else %}
-
-                                —
-
-                            {% endif %}
-
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                {% if attempt.failure_type %}
-
-                <div class="attempt-details">
-
-                    <div>
-
-                        <span>Failure type</span>
-
-                        <strong>
-                            {{ attempt.failure_type }}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-                {% endif %}
-
-
-                {% if attempt.error %}
-
-                <div class="attempt-error">
-                    {{ attempt.error }}
-                </div>
-
-                {% endif %}
-
-
-                {% if attempt.status == "UNKNOWN" %}
-
-                <div class="unknown-explanation">
-
-                    <div>
-
-                        <strong>
-                            Processor outcome is unknown.
-                        </strong>
-
-                        <span>
-                            The processor may have completed the operation,
-                            but LedgerFlow did not receive a definitive
-                            response.
-                        </span>
-
-                    </div>
-
-
-                    <form
-                        method="post"
-                        action="{% url 'reconcile-payment' payment.id %}"
-                    >
-
-                        {% csrf_token %}
-
-                        <button
-                            type="submit"
-                            class="apple-action-button"
-                        >
-                            Reconcile operation
-                        </button>
-
-                    </form>
-
-                </div>
-
-                {% endif %}
-
-
-                {% if attempt.status == "FAILED" and attempt.failure_type == "TRANSIENT" %}
-
-                <div class="retry-explanation">
-
-                    <div>
-
-                        <strong>
-                            Temporary processor failure.
-                        </strong>
-
-                        <span>
-                            This attempt is eligible for another
-                            processing attempt.
-                        </span>
-
-                    </div>
-
-
-                    <form
-                        method="post"
-                        action="{% url 'retry-payment' payment.id %}"
-                    >
-
-                        {% csrf_token %}
-
-                        <button
-                            type="submit"
-                            class="apple-action-button"
-                        >
-                            Retry payment
-                        </button>
-
-                    </form>
-
-                </div>
-
-                {% endif %}
-
-            </div>
-
-        </article>
-
-
-        {% empty %}
-
-        <div class="detail-empty">
-            No processing attempts have been recorded.
-        </div>
-
-        {% endfor %}
-
-    </section>
-
-
-    <section class="detail-section">
-
-        <div class="detail-section-heading">
-            <span>State</span>
-        </div>
-
-
-        <div class="state-timeline">
-
-            <div class="state-item">
-
-                <span class="state-dot"></span>
-
-                <div>
-
-                    <strong>Created</strong>
-
-                    <span>
-                        {{ payment.created_at|date:"M j, Y · H:i:s" }}
+                    <span class="payment-action-label">
+                        RETRY AVAILABLE
                     </span>
-
-                </div>
-
-            </div>
-
-
-            {% if attempts %}
-
-            <div class="state-line"></div>
-
-
-            <div class="state-item">
-
-                <span class="state-dot state-dot-active"></span>
-
-                <div>
 
                     <strong>
-                        Processing attempt recorded
+                        The latest processor attempt failed transiently.
                     </strong>
 
-                    <span>
-                        {{ attempts.0.created_at|date:"M j, Y · H:i:s" }}
-                    </span>
+                    <p>
+                        Retry the same logical payment with a new
+                        processor execution attempt.
+                    </p>
 
                 </div>
+
+                <form
+                    method="post"
+                    action="{% url 'payment-retry' payment.id %}"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        type="submit"
+                        class="button button-dark"
+                    >
+                        Retry payment
+                        <span class="button-arrow">↗</span>
+                    </button>
+
+                </form>
+
+            </section>
+
+            {% endif %}
+        {% endif %}
+    {% endif %}
+
+
+    <section class="payment-lifecycle-section">
+
+        <div class="section-heading">
+
+            <div>
+                <div class="eyebrow">
+                    PAYMENT LIFECYCLE
+                </div>
+
+                <h2>
+                    Execution state
+                </h2>
+            </div>
+
+            {% if processing_seconds is not None %}
+
+            <div class="lifecycle-duration">
+
+                <span>
+                    Processing duration
+                </span>
+
+                <strong>
+                    {{ processing_seconds }}s
+                </strong>
 
             </div>
 
@@ -460,8 +219,559 @@ Payments / pay_{{ payment.id|stringformat:"06d" }}
 
         </div>
 
+
+        <div class="payment-lifecycle">
+
+            <div
+                class="life-step
+                {% if payment.status == 'CREATED'
+                    or payment.status == 'PROCESSING'
+                    or payment.status == 'SUCCEEDED'
+                    or payment.status == 'FAILED' %}
+                    is-complete
+                {% endif %}"
+            >
+
+                <div class="life-node">
+                    <span>01</span>
+                </div>
+
+                <div class="life-content">
+                    <strong>Created</strong>
+                    <span>
+                        Logical payment accepted
+                    </span>
+                </div>
+
+            </div>
+
+
+            <div
+                class="life-line
+                {% if payment.status == 'PROCESSING'
+                    or payment.status == 'SUCCEEDED'
+                    or payment.status == 'FAILED' %}
+                    is-active
+                {% endif %}"
+            ></div>
+
+
+            <div
+                class="life-step
+                {% if payment.status == 'PROCESSING' %}
+                    is-current
+                {% elif payment.status == 'SUCCEEDED'
+                    or payment.status == 'FAILED' %}
+                    is-complete
+                {% endif %}"
+            >
+
+                <div class="life-node">
+                    <span>02</span>
+                </div>
+
+                <div class="life-content">
+                    <strong>Processing</strong>
+                    <span>
+                        Worker executing payment
+                    </span>
+                </div>
+
+            </div>
+
+
+            <div
+                class="life-line
+                {% if payment.status == 'SUCCEEDED'
+                    or payment.status == 'FAILED' %}
+                    is-active
+                {% endif %}"
+            ></div>
+
+
+            <div
+                class="life-step
+                {% if payment.status == 'SUCCEEDED'
+                    or payment.status == 'FAILED' %}
+                    is-current
+                {% endif %}"
+            >
+
+                <div class="life-node">
+                    <span>03</span>
+                </div>
+
+                <div class="life-content">
+
+                    {% if payment.status == 'SUCCEEDED' %}
+
+                    <strong>Succeeded</strong>
+
+                    <span>
+                        Processor outcome confirmed
+                    </span>
+
+                    {% elif payment.status == 'FAILED' %}
+
+                    <strong>Failed</strong>
+
+                    <span>
+                        Payment reached a terminal failure
+                    </span>
+
+                    {% else %}
+
+                    <strong>Outcome</strong>
+
+                    <span>
+                        Awaiting final resolution
+                    </span>
+
+                    {% endif %}
+
+                </div>
+
+            </div>
+
+        </div>
+
     </section>
 
-</div>
+
+    <section class="payment-information-grid">
+
+        <div class="payment-information-column">
+
+            <section class="detail-panel">
+
+                <header class="detail-panel-header">
+
+                    <div>
+                        <div class="eyebrow">
+                            PAYMENT INFORMATION
+                        </div>
+
+                        <h2>
+                            Logical operation
+                        </h2>
+                    </div>
+
+                </header>
+
+
+                <div class="property-grid">
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Payment ID
+                        </span>
+
+                        <strong class="property-value">
+                            #{{ payment.id }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Amount
+                        </span>
+
+                        <strong class="property-value">
+                            {{ payment.amount }}
+                            {{ payment.currency }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Status
+                        </span>
+
+                        <strong class="property-value">
+                            {{ payment.get_status_display }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Created
+                        </span>
+
+                        <strong class="property-value">
+                            {{ payment.created_at|date:"M j, Y H:i:s" }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Updated
+                        </span>
+
+                        <strong class="property-value">
+                            {{ payment.updated_at|date:"M j, Y H:i:s" }}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <section class="detail-panel">
+
+                <header class="detail-panel-header">
+
+                    <div>
+                        <div class="eyebrow">
+                            IDEMPOTENCY
+                        </div>
+
+                        <h2>
+                            Request contract
+                        </h2>
+                    </div>
+
+                </header>
+
+
+                {% if payment.idempotency_record %}
+
+                <div class="contract-panel">
+
+                    <div class="contract-row">
+
+                        <span>
+                            Idempotency key
+                        </span>
+
+                        <code>
+                            {{ payment.idempotency_record.key }}
+                        </code>
+
+                    </div>
+
+
+                    <div class="contract-row">
+
+                        <span>
+                            Request fingerprint
+                        </span>
+
+                        <code>
+                            {{ payment.idempotency_record.request_fingerprint }}
+                        </code>
+
+                    </div>
+
+
+                    <div class="contract-row">
+
+                        <span>
+                            Recorded
+                        </span>
+
+                        <strong>
+                            {{ payment.idempotency_record.created_at|date:"M j, Y H:i:s" }}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+                {% else %}
+
+                <div class="detail-empty">
+                    No idempotency record is attached to this payment.
+                </div>
+
+                {% endif %}
+
+            </section>
+
+        </div>
+
+
+        <div class="payment-information-column">
+
+            <section class="detail-panel">
+
+                <header class="detail-panel-header">
+
+                    <div>
+                        <div class="eyebrow">
+                            EXECUTION INFRASTRUCTURE
+                        </div>
+
+                        <h2>
+                            Worker job
+                        </h2>
+                    </div>
+
+                </header>
+
+
+                {% if payment.job %}
+
+                <div class="property-grid">
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Job status
+                        </span>
+
+                        <strong class="property-value">
+                            {{ payment.job.get_status_display }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Worker attempts
+                        </span>
+
+                        <strong class="property-value">
+                            {{ payment.job.attempts }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Processor behavior
+                        </span>
+
+                        <strong class="property-value property-mono">
+                            {{ payment.job.processor_behavior }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Operation ID
+                        </span>
+
+                        <strong class="property-value property-mono">
+                            {% if payment.job.processor_operation_id %}
+                                {{ payment.job.processor_operation_id }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Started
+                        </span>
+
+                        <strong class="property-value">
+                            {% if payment.job.started_at %}
+                                {{ payment.job.started_at|date:"H:i:s" }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="property">
+
+                        <span class="property-label">
+                            Completed
+                        </span>
+
+                        <strong class="property-value">
+                            {% if payment.job.completed_at %}
+                                {{ payment.job.completed_at|date:"H:i:s" }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+                {% else %}
+
+                <div class="detail-empty">
+                    This payment has not been queued for worker execution.
+                </div>
+
+                {% endif %}
+
+            </section>
+
+
+            <section class="detail-panel">
+
+                <header class="detail-panel-header">
+
+                    <div>
+                        <div class="eyebrow">
+                            PROCESSOR ATTEMPTS
+                        </div>
+
+                        <h2>
+                            Execution history
+                        </h2>
+                    </div>
+
+                    <span class="attempts-total">
+                        {{ attempts|length }}
+                    </span>
+
+                </header>
+
+
+                <div class="attempt-list">
+
+                    {% for attempt in attempts %}
+
+                    <article class="attempt-item">
+
+                        <div class="attempt-marker">
+
+                            <span
+                                class="
+                                {% if attempt.status == 'SUCCESS' %}
+                                    attempt-marker-success
+                                {% elif attempt.status == 'FAILED' %}
+                                    attempt-marker-failed
+                                {% else %}
+                                    attempt-marker-unknown
+                                {% endif %}
+                                "
+                            ></span>
+
+                        </div>
+
+
+                        <div class="attempt-main">
+
+                            <div class="attempt-header">
+
+                                <strong>
+                                    Attempt {{ forloop.counter }}
+                                </strong>
+
+                                <span
+                                    class="attempt-status
+                                    attempt-status-{{ attempt.status|lower }}"
+                                >
+                                    {{ attempt.status }}
+                                </span>
+
+                            </div>
+
+
+                            <div class="attempt-operation">
+
+                                <span>
+                                    Processor operation
+                                </span>
+
+                                <code>
+                                    {{ attempt.processor_operation_id }}
+                                </code>
+
+                            </div>
+
+
+                            {% if attempt.failure_type %}
+
+                            <div class="attempt-meta">
+
+                                <span>
+                                    Failure type
+                                </span>
+
+                                <strong>
+                                    {{ attempt.failure_type }}
+                                </strong>
+
+                            </div>
+
+                            {% endif %}
+
+
+                            {% if attempt.error %}
+
+                            <div class="attempt-error">
+                                {{ attempt.error }}
+                            </div>
+
+                            {% endif %}
+
+
+                            <div class="attempt-created">
+                                {{ attempt.created_at|date:"M j, Y · H:i:s" }}
+                            </div>
+
+                        </div>
+
+                    </article>
+
+                    {% empty %}
+
+                    <div class="detail-empty">
+                        No processor attempts have been recorded.
+                    </div>
+
+                    {% endfor %}
+
+                </div>
+
+            </section>
+
+        </div>
+
+    </section>
+
+
+    <footer class="payment-detail-footer">
+
+        <a
+            class="back-link"
+            href="{% url 'payments' %}"
+        >
+            <span>←</span>
+            Back to payments
+        </a>
+
+        <span>
+            LedgerFlow · Payment reliability simulator
+        </span>
+
+    </footer>
+
+</section>
 
 {% endblock %}

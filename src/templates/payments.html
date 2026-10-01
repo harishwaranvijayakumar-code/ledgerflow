@@ -2,303 +2,374 @@
 
 {% block title %}Payments · LedgerFlow{% endblock %}
 
-{% block eyebrow %}Payments{% endblock %}
-
 {% block content %}
 
-<div class="apple-payments">
+<section class="payments-page">
 
-    <section class="apple-page-intro">
-        <div>
-            <div class="apple-kicker">PAYMENTS</div>
+    <header class="payments-header">
 
-            <h1>Payments</h1>
+        <div class="payments-heading">
+
+            <div class="eyebrow">
+                PAYMENT OPERATIONS
+            </div>
+
+            <div class="payments-title-row">
+                <h1>Payments</h1>
+
+                <span class="record-count">
+                    {{ metrics.total }}
+                </span>
+            </div>
 
             <p>
-                Payment operations, processing attempts, and reliability state.
+                A complete execution history for simulated
+                payment operations.
             </p>
+
         </div>
 
-        <a
-            href="{% url 'simulator' %}"
-            class="apple-primary-button"
-        >
-            Create test payment
-        </a>
-    </section>
 
+        <div class="payments-header-actions">
 
-    <section class="apple-metrics">
-
-        <div class="apple-metric">
-            <span>Total</span>
-            <strong>{{ metrics.total }}</strong>
-        </div>
-
-        <div class="apple-metric">
-            <span>Succeeded</span>
-            <strong class="metric-success">
-                {{ metrics.succeeded }}
-            </strong>
-        </div>
-
-        <div class="apple-metric">
-            <span>Processing</span>
-            <strong class="metric-processing">
-                {{ metrics.processing }}
-            </strong>
-        </div>
-
-        <div class="apple-metric">
-            <span>Unknown</span>
-            <strong class="metric-unknown">
-                {{ metrics.unknown_attempts }}
-            </strong>
-        </div>
-
-    </section>
-
-
-    {% if metrics.unknown_attempts %}
-    <div class="apple-notice apple-notice-warning">
-        <span class="apple-notice-dot"></span>
-
-        <div>
-            <strong>
-                {{ metrics.unknown_attempts }} unresolved processor
-                outcome{{ metrics.unknown_attempts|pluralize }}
-            </strong>
-
-            <span>
-                Reconciliation is required before another processor
-                operation is created.
-            </span>
-        </div>
-    </div>
-    {% endif %}
-
-
-    <section class="apple-workspace">
-
-        <div class="apple-toolbar">
-
-            <label class="apple-search">
-                <span>⌕</span>
-
-                <input
-                    id="payment-search"
-                    type="search"
-                    placeholder="Search payments"
-                    autocomplete="off"
-                >
-            </label>
-
-            <div class="apple-filters">
-
-                <select id="status-filter">
-                    <option value="">All statuses</option>
-                    <option value="SUCCEEDED">Succeeded</option>
-                    <option value="PROCESSING">Processing</option>
-                    <option value="FAILED">Failed</option>
-                </select>
-
-                <select id="currency-filter">
-                    <option value="">All currencies</option>
-                </select>
-
+            <div class="environment-context">
+                <span class="environment-context-dot"></span>
+                Test environment
             </div>
-
-        </div>
-
-
-        <div class="apple-table">
-
-            <div class="apple-table-header">
-                <span>Payment</span>
-                <span>Status</span>
-                <span>Amount</span>
-                <span>Attempts</span>
-                <span>Created</span>
-            </div>
-
-
-            {% for payment in payments %}
 
             <a
-                href="{% url 'payment-detail' payment.id %}"
-                class="apple-payment-row"
-                data-payment-id="pay_{{ payment.id|stringformat:'06d' }}"
-                data-idempotency="{{ payment.idempotency_record.key }}"
-                data-status="{{ payment.status }}"
-                data-currency="{{ payment.currency }}"
+                class="button button-dark"
+                href="{% url 'simulator' %}"
             >
-
-                <div class="apple-payment-main">
-
-                    <span class="apple-payment-id">
-                        pay_{{ payment.id|stringformat:"06d" }}
-                    </span>
-
-                    <span class="apple-payment-key">
-                        {{ payment.idempotency_record.key }}
-                    </span>
-
-                </div>
-
-
-                <div class="apple-status">
-
-                    <span
-                        class="
-                            apple-status-dot
-                            status-{{ payment.status|lower }}
-                        "
-                    ></span>
-
-                    <span>
-                        {{ payment.get_status_display }}
-                    </span>
-
-                </div>
-
-
-                <div class="apple-amount">
-                    {{ payment.amount }}
-                    <small>{{ payment.currency }}</small>
-                </div>
-
-
-                <div class="apple-attempts">
-                    {{ payment.attempts.count }}
-                </div>
-
-
-                <time class="apple-time">
-                    {{ payment.created_at|date:"M j, Y · H:i" }}
-                </time>
-
+                <span>New simulation</span>
+                <span class="button-arrow">↗</span>
             </a>
 
-            {% empty %}
+        </div>
 
-            <div class="apple-empty">
+    </header>
 
-                <h2>No payments yet.</h2>
 
-                <p>
-                    Create a test payment to begin investigating
-                    payment behavior.
-                </p>
+    <section class="operations-summary">
 
-                <a
-                    href="{% url 'simulator' %}"
-                    class="apple-secondary-button"
-                >
-                    Open simulator
-                </a>
+        <div class="operation-summary-item">
 
-            </div>
+            <span class="operation-summary-label">
+                Total
+            </span>
 
-            {% endfor %}
-
-            <div
-                id="filtered-empty"
-                class="apple-empty apple-filtered-empty"
-                hidden
-            >
-                <h2>No matching payments.</h2>
-                <p>
-                    Try another search or filter.
-                </p>
-            </div>
+            <strong class="operation-summary-value">
+                {{ metrics.total }}
+            </strong>
 
         </div>
 
 
-        <div class="apple-table-footer">
-            <span id="payment-count">
-                {{ payments|length }} payment{{ payments|length|pluralize }}
+        <div class="operation-summary-item">
+
+            <span class="operation-summary-label">
+                Succeeded
             </span>
 
-            <span>Test environment</span>
+            <strong class="operation-summary-value">
+                {{ metrics.succeeded }}
+            </strong>
+
+        </div>
+
+
+        <div class="operation-summary-item">
+
+            <span class="operation-summary-label">
+                Processing
+            </span>
+
+            <strong class="operation-summary-value">
+                {{ metrics.processing }}
+            </strong>
+
+        </div>
+
+
+        <div class="operation-summary-item">
+
+            <span class="operation-summary-label">
+                Failed
+            </span>
+
+            <strong class="operation-summary-value">
+                {{ metrics.failed }}
+            </strong>
+
+        </div>
+
+
+        <div class="operation-summary-item">
+
+            <span class="operation-summary-label">
+                Success rate
+            </span>
+
+            <strong class="operation-summary-value">
+                {{ metrics.success_rate }}%
+            </strong>
+
         </div>
 
     </section>
 
-</div>
 
-{% endblock %}
+    <div class="payments-toolbar">
+
+        <div class="payments-toolbar-left">
+
+            <span class="toolbar-label">
+                All payments
+            </span>
+
+            <span class="toolbar-divider"></span>
+
+            <span class="toolbar-secondary">
+                Ordered by newest
+            </span>
+
+        </div>
 
 
-{% block scripts %}
+        <div class="payments-toolbar-right">
 
-<script>
-(function () {
-    const search = document.getElementById("payment-search");
-    const status = document.getElementById("status-filter");
-    const currency = document.getElementById("currency-filter");
-    const rows = Array.from(
-        document.querySelectorAll(".apple-payment-row")
-    );
-    const empty = document.getElementById("filtered-empty");
-    const count = document.getElementById("payment-count");
+            <span class="toolbar-secondary">
+                {{ metrics.success_rate }}% successful
+            </span>
 
-    const currencies = [
-        ...new Set(
-            rows.map(row => row.dataset.currency)
-        )
-    ];
+        </div>
 
-    currencies.forEach(value => {
-        const option = document.createElement("option");
-        option.value = value;
-        option.textContent = value;
-        currency.appendChild(option);
-    });
+    </div>
 
-    function filterRows() {
-        const query = search.value.trim().toLowerCase();
-        const selectedStatus = status.value;
-        const selectedCurrency = currency.value;
 
-        let visible = 0;
+    <section class="payments-table-container">
 
-        rows.forEach(row => {
-            const matchesQuery =
-                !query ||
-                row.dataset.paymentId.toLowerCase().includes(query) ||
-                row.dataset.idempotency.toLowerCase().includes(query);
+        <table class="payments-table">
 
-            const matchesStatus =
-                !selectedStatus ||
-                row.dataset.status === selectedStatus;
+            <thead>
 
-            const matchesCurrency =
-                !selectedCurrency ||
-                row.dataset.currency === selectedCurrency;
+                <tr>
 
-            const show =
-                matchesQuery &&
-                matchesStatus &&
-                matchesCurrency;
+                    <th>
+                        Payment
+                    </th>
 
-            row.hidden = !show;
+                    <th>
+                        Amount
+                    </th>
 
-            if (show) {
-                visible += 1;
-            }
-        });
+                    <th>
+                        Status
+                    </th>
 
-        empty.hidden = visible !== 0;
+                    <th>
+                        Attempts
+                    </th>
 
-        count.textContent =
-            `${visible} payment${visible === 1 ? "" : "s"}`;
-    }
+                    <th>
+                        Worker
+                    </th>
 
-    search.addEventListener("input", filterRows);
-    status.addEventListener("change", filterRows);
-    currency.addEventListener("change", filterRows);
-})();
-</script>
+                    <th>
+                        Created
+                    </th>
+
+                    <th>
+                    </th>
+
+                </tr>
+
+            </thead>
+
+
+            <tbody>
+
+                {% for payment in payments %}
+
+                <tr
+                    class="payment-table-row"
+                    data-href="{% url 'payment-detail' payment.id %}"
+                >
+
+                    <td class="payment-column">
+
+                        <a
+                            class="payment-primary"
+                            href="{% url 'payment-detail' payment.id %}"
+                        >
+
+                            <span class="payment-id">
+                                #{{ payment.id }}
+                            </span>
+
+                            {% if payment.idempotency_record %}
+
+                            <span class="payment-key">
+                                {{ payment.idempotency_record.key }}
+                            </span>
+
+                            {% endif %}
+
+                        </a>
+
+                    </td>
+
+
+                    <td class="amount-column">
+
+                        <span class="payment-amount">
+                            {{ payment.amount }}
+                        </span>
+
+                        <span class="payment-currency">
+                            {{ payment.currency }}
+                        </span>
+
+                    </td>
+
+
+                    <td class="status-column">
+
+                        <span
+                            class="payment-status status-{{ payment.status|lower }}"
+                        >
+
+                            <span
+                                class="payment-status-indicator"
+                            ></span>
+
+                            {{ payment.get_status_display }}
+
+                        </span>
+
+                    </td>
+
+
+                    <td class="attempt-column">
+
+                        <span class="attempt-count">
+                            {{ payment.attempts.all|length }}
+                        </span>
+
+                    </td>
+
+
+                    <td class="job-column">
+
+                        {% if payment.job %}
+
+                        <span
+                            class="worker-status worker-{{ payment.job.status|lower }}"
+                        >
+
+                            <span
+                                class="worker-status-indicator"
+                            ></span>
+
+                            {{ payment.job.get_status_display }}
+
+                        </span>
+
+                        {% else %}
+
+                        <span class="table-muted">
+                            Not queued
+                        </span>
+
+                        {% endif %}
+
+                    </td>
+
+
+                    <td class="created-column">
+
+                        <span class="created-time">
+                            {{ payment.created_at|date:"M j, Y" }}
+                        </span>
+
+                        <span class="created-clock">
+                            {{ payment.created_at|date:"H:i:s" }}
+                        </span>
+
+                    </td>
+
+
+                    <td class="action-column">
+
+                        <a
+                            class="payment-row-arrow"
+                            href="{% url 'payment-detail' payment.id %}"
+                            aria-label="Open payment {{ payment.id }}"
+                        >
+                            →
+                        </a>
+
+                    </td>
+
+                </tr>
+
+                {% empty %}
+
+                <tr>
+
+                    <td
+                        colspan="7"
+                        class="payments-empty-cell"
+                    >
+
+                        <div class="payments-empty">
+
+                            <div class="payments-empty-mark">
+                                —
+                            </div>
+
+                            <div>
+                                <strong>
+                                    No payments yet
+                                </strong>
+
+                                <span>
+                                    Run a simulation to create
+                                    the first payment operation.
+                                </span>
+                            </div>
+
+                        </div>
+
+                    </td>
+
+                </tr>
+
+                {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </section>
+
+
+    {% if payments %}
+
+    <footer class="payments-table-footer">
+
+        <span>
+            {{ metrics.total }} payment{{ metrics.total|pluralize }}
+        </span>
+
+        <span>
+            PostgreSQL-backed test environment
+        </span>
+
+    </footer>
+
+    {% endif %}
+
+</section>
 
 {% endblock %}

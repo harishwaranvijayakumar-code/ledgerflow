@@ -2,37 +2,48 @@
 
 {% block title %}Simulator · LedgerFlow{% endblock %}
 
-{% block eyebrow %}Developer / Simulator{% endblock %}
-
 {% block content %}
 
-<div class="apple-simulator">
-
-    <a
-        href="{% url 'payments' %}"
-        class="apple-back-link"
-    >
-        ‹ Payments
-    </a>
+<section class="simulator-page">
 
     <header class="simulator-header">
 
-        <div>
-            <div class="apple-detail-kicker">
-                DEVELOPER TOOL
+        <div class="simulator-heading">
+
+            <div class="eyebrow">
+                PAYMENT SIMULATOR
             </div>
 
-            <h1>Payment simulator</h1>
+            <div class="simulator-title-row">
+
+                <h1>Simulator</h1>
+
+                <span class="simulator-environment">
+                    <span class="simulator-environment-dot"></span>
+                    Test environment
+                </span>
+
+            </div>
 
             <p>
                 Create controlled payment operations and observe
-                how LedgerFlow handles processor behavior.
+                how LedgerFlow handles processor success, failure,
+                retries, and uncertain outcomes.
             </p>
+
         </div>
 
-        <div class="simulator-mode">
-            <span></span>
-            Test mode
+
+        <div class="simulator-header-meta">
+
+            <span>
+                Developer tool
+            </span>
+
+            <span>
+                PostgreSQL-backed
+            </span>
+
         </div>
 
     </header>
@@ -40,204 +51,674 @@
 
     {% if error %}
 
-    <div class="simulator-error">
-        {{ error }}
-    </div>
+    <section class="simulator-error">
 
-    {% endif %}
-
-
-    <form method="post" class="simulator-form">
-
-        {% csrf_token %}
-
-        <section class="simulator-section">
-
-            <div class="simulator-section-title">
-                Payment
-            </div>
-
-            <div class="simulator-fields">
-
-                <label>
-                    <span>Amount</span>
-
-                    <input
-                        type="text"
-                        name="amount"
-                        value="{{ form_data.amount|default:'250.00' }}"
-                        placeholder="250.00"
-                        required
-                    >
-                </label>
-
-
-                <label>
-                    <span>Currency</span>
-
-                    <select name="currency">
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="INR">INR</option>
-                    </select>
-                </label>
-
-            </div>
-
-        </section>
-
-
-        <section class="simulator-section">
-
-            <div class="simulator-section-title">
-                Idempotency
-            </div>
-
-            <label class="simulator-full-field">
-
-                <span>Idempotency key</span>
-
-                <input
-                    type="text"
-                    name="idempotency_key"
-                    value="{{ form_data.idempotency_key|default:'' }}"
-                    placeholder="idem_checkout_001"
-                    required
-                >
-
-                <small>
-                    Reusing this key represents a retry of the same
-                    logical payment.
-                </small>
-
-            </label>
-
-        </section>
-
-
-        <section class="simulator-section">
-
-            <div class="simulator-section-title">
-                Processor behavior
-            </div>
-
-            <div class="behavior-options">
-
-                <label class="behavior-option">
-
-                    <input
-                        type="radio"
-                        name="processor_behavior"
-                        value="SUCCESS"
-                        checked
-                    >
-
-                    <div>
-                        <strong>Success</strong>
-                        <span>
-                            Processor confirms the operation.
-                        </span>
-                    </div>
-
-                </label>
-
-
-                <label class="behavior-option">
-
-                    <input
-                        type="radio"
-                        name="processor_behavior"
-                        value="TRANSIENT_FAILURE"
-                    >
-
-                    <div>
-                        <strong>Transient failure</strong>
-                        <span>
-                            Temporary failure that may be retried.
-                        </span>
-                    </div>
-
-                </label>
-
-
-                <label class="behavior-option">
-
-                    <input
-                        type="radio"
-                        name="processor_behavior"
-                        value="PERMANENT_FAILURE"
-                    >
-
-                    <div>
-                        <strong>Permanent failure</strong>
-                        <span>
-                            Processor rejects the operation.
-                        </span>
-                    </div>
-
-                </label>
-
-
-                <label class="behavior-option">
-
-                    <input
-                        type="radio"
-                        name="processor_behavior"
-                        value="UNKNOWN"
-                    >
-
-                    <div>
-                        <strong>Unknown outcome</strong>
-                        <span>
-                            Processor may have completed the operation,
-                            but the response is lost.
-                        </span>
-                    </div>
-
-                </label>
-
-            </div>
-
-        </section>
-
-
-        <div class="simulator-actions">
-
-            <button
-                type="submit"
-                class="apple-primary-button"
-            >
-                Run simulation
-            </button>
-
-            <a
-                href="{% url 'payments' %}"
-                class="apple-secondary-button"
-            >
-                Cancel
-            </a>
-
+        <div class="simulator-error-icon">
+            !
         </div>
 
-    </form>
-
-
-    <section class="simulator-explanation">
-
         <div>
-            <strong>What this tests</strong>
+
+            <strong>
+                Simulation could not be created
+            </strong>
 
             <p>
-                Each simulation creates one logical payment operation.
-                Processor behavior controls the simulated external
-                system, while the idempotency key remains the identity
-                of the payment request.
+                {{ error }}
             </p>
+
         </div>
 
     </section>
 
-</div>
+    {% endif %}
+
+
+    <section class="simulator-layout">
+
+
+        <div class="simulator-main-column">
+
+            <form
+                method="post"
+                class="simulator-form"
+                data-single-submit
+            >
+
+                {% csrf_token %}
+
+
+                <section class="simulator-panel">
+
+                    <header class="simulator-panel-header">
+
+                        <div>
+
+                            <div class="eyebrow">
+                                PAYMENT
+                            </div>
+
+                            <h2>
+                                Define the operation
+                            </h2>
+
+                        </div>
+
+                        <span class="simulator-step">
+                            01
+                        </span>
+
+                    </header>
+
+
+                    <div class="simulator-fields">
+
+                        <div class="simulator-field simulator-field-large">
+
+                            <label for="amount">
+                                Amount
+                            </label>
+
+                            <div class="amount-input">
+
+                                <span class="amount-symbol">
+                                    $
+                                </span>
+
+                                <input
+                                    id="amount"
+                                    name="amount"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    placeholder="250.00"
+                                    value="{{ form_data.amount|default:'' }}"
+                                    required
+                                />
+
+                            </div>
+
+                            <span class="field-hint">
+                                Decimal payment amount.
+                            </span>
+
+                        </div>
+
+
+                        <div class="simulator-field">
+
+                            <label for="currency">
+                                Currency
+                            </label>
+
+                            <select
+                                id="currency"
+                                name="currency"
+                                required
+                            >
+
+                                <option
+                                    value="USD"
+                                    {% if form_data.currency == "USD" or not form_data.currency %}
+                                        selected
+                                    {% endif %}
+                                >
+                                    USD
+                                </option>
+
+                                <option
+                                    value="EUR"
+                                    {% if form_data.currency == "EUR" %}
+                                        selected
+                                    {% endif %}
+                                >
+                                    EUR
+                                </option>
+
+                                <option
+                                    value="GBP"
+                                    {% if form_data.currency == "GBP" %}
+                                        selected
+                                    {% endif %}
+                                >
+                                    GBP
+                                </option>
+
+                                <option
+                                    value="INR"
+                                    {% if form_data.currency == "INR" %}
+                                        selected
+                                    {% endif %}
+                                >
+                                    INR
+                                </option>
+
+                            </select>
+
+                            <span class="field-hint">
+                                ISO currency code.
+                            </span>
+
+                        </div>
+
+
+                        <div class="simulator-field simulator-field-full">
+
+                            <label for="idempotency_key">
+                                Idempotency key
+                            </label>
+
+                            <input
+                                id="idempotency_key"
+                                name="idempotency_key"
+                                type="text"
+                                autocomplete="off"
+                                placeholder="payment-demo-001"
+                                value="{{ form_data.idempotency_key|default:'' }}"
+                                required
+                            />
+
+                            <span class="field-hint">
+                                Reusing this key with the same request
+                                represents the same logical payment.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </section>
+
+
+                <section class="simulator-panel">
+
+                    <header class="simulator-panel-header">
+
+                        <div>
+
+                            <div class="eyebrow">
+                                PROCESSOR BEHAVIOR
+                            </div>
+
+                            <h2>
+                                Choose the failure mode
+                            </h2>
+
+                        </div>
+
+                        <span class="simulator-step">
+                            02
+                        </span>
+
+                    </header>
+
+
+                    <div class="behavior-grid">
+
+
+                        <label class="behavior-option is-selected">
+
+                            <input
+                                type="radio"
+                                name="processor_behavior"
+                                value="SUCCESS"
+                                {% if not form_data.processor_behavior or form_data.processor_behavior == "SUCCESS" %}
+                                    checked
+                                {% endif %}
+                            />
+
+                            <span class="behavior-radio"></span>
+
+                            <span class="behavior-content">
+
+                                <span class="behavior-topline">
+
+                                    <strong>
+                                        Success
+                                    </strong>
+
+                                    <span class="behavior-code">
+                                        SUCCESS
+                                    </span>
+
+                                </span>
+
+                                <span class="behavior-description">
+                                    Processor confirms the operation.
+                                </span>
+
+                            </span>
+
+                            <span class="behavior-mark">
+                                01
+                            </span>
+
+                        </label>
+
+
+                        <label class="behavior-option">
+
+                            <input
+                                type="radio"
+                                name="processor_behavior"
+                                value="TRANSIENT_FAILURE"
+                                {% if form_data.processor_behavior == "TRANSIENT_FAILURE" %}
+                                    checked
+                                {% endif %}
+                            />
+
+                            <span class="behavior-radio"></span>
+
+                            <span class="behavior-content">
+
+                                <span class="behavior-topline">
+
+                                    <strong>
+                                        Transient failure
+                                    </strong>
+
+                                    <span class="behavior-code">
+                                        RETRYABLE
+                                    </span>
+
+                                </span>
+
+                                <span class="behavior-description">
+                                    Temporary failure that can trigger
+                                    another execution attempt.
+                                </span>
+
+                            </span>
+
+                            <span class="behavior-mark">
+                                02
+                            </span>
+
+                        </label>
+
+
+                        <label class="behavior-option">
+
+                            <input
+                                type="radio"
+                                name="processor_behavior"
+                                value="PERMANENT_FAILURE"
+                                {% if form_data.processor_behavior == "PERMANENT_FAILURE" %}
+                                    checked
+                                {% endif %}
+                            />
+
+                            <span class="behavior-radio"></span>
+
+                            <span class="behavior-content">
+
+                                <span class="behavior-topline">
+
+                                    <strong>
+                                        Permanent failure
+                                    </strong>
+
+                                    <span class="behavior-code">
+                                        TERMINAL
+                                    </span>
+
+                                </span>
+
+                                <span class="behavior-description">
+                                    Processor rejects the operation
+                                    without automatic retry.
+                                </span>
+
+                            </span>
+
+                            <span class="behavior-mark">
+                                03
+                            </span>
+
+                        </label>
+
+
+                        <label class="behavior-option">
+
+                            <input
+                                type="radio"
+                                name="processor_behavior"
+                                value="UNKNOWN"
+                                {% if form_data.processor_behavior == "UNKNOWN" %}
+                                    checked
+                                {% endif %}
+                            />
+
+                            <span class="behavior-radio"></span>
+
+                            <span class="behavior-content">
+
+                                <span class="behavior-topline">
+
+                                    <strong>
+                                        Unknown outcome
+                                    </strong>
+
+                                    <span class="behavior-code">
+                                        RECONCILE
+                                    </span>
+
+                                </span>
+
+                                <span class="behavior-description">
+                                    Processor completes but the worker
+                                    cannot confirm the response.
+                                </span>
+
+                            </span>
+
+                            <span class="behavior-mark">
+                                04
+                            </span>
+
+                        </label>
+
+
+                    </div>
+
+                </section>
+
+
+                <div class="simulator-submit-row">
+
+                    <div class="simulator-submit-copy">
+
+                        <span>
+                            READY TO EXECUTE
+                        </span>
+
+                        <strong>
+                            Create a simulated payment
+                        </strong>
+
+                    </div>
+
+
+                    <button
+                        type="submit"
+                        class="run-button"
+                    >
+
+                        <span data-submit-label>
+                            Run simulation
+                        </span>
+
+                        <span class="button-arrow">
+                            ↗
+                        </span>
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+
+        <aside class="simulator-side-column">
+
+
+            <section class="simulator-panel simulator-contract-panel">
+
+                <header class="simulator-panel-header">
+
+                    <div>
+
+                        <div class="eyebrow">
+                            EXECUTION MODEL
+                        </div>
+
+                        <h2>
+                            What happens next
+                        </h2>
+
+                    </div>
+
+                </header>
+
+
+                <div class="simulator-flow">
+
+                    <div class="simulator-flow-node">
+
+                        <span class="simulator-flow-index">
+                            01
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Request
+                            </strong>
+
+                            <span>
+                                Validate amount, currency,
+                                and idempotency key.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="simulator-flow-line"></div>
+
+
+                    <div class="simulator-flow-node">
+
+                        <span class="simulator-flow-index">
+                            02
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Payment
+                            </strong>
+
+                            <span>
+                                Create one logical payment
+                                operation.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="simulator-flow-line"></div>
+
+
+                    <div class="simulator-flow-node">
+
+                        <span class="simulator-flow-index">
+                            03
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Worker
+                            </strong>
+
+                            <span>
+                                Claim the job and execute
+                                the processor operation.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="simulator-flow-line"></div>
+
+
+                    <div class="simulator-flow-node">
+
+                        <span class="simulator-flow-index">
+                            04
+                        </span>
+
+                        <div>
+
+                            <strong>
+                                Outcome
+                            </strong>
+
+                            <span>
+                                Confirm, retry, fail, or
+                                reconcile the attempt.
+                            </span>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <section class="simulator-panel simulator-state-panel">
+
+                <header class="simulator-panel-header">
+
+                    <div>
+
+                        <div class="eyebrow">
+                            CURRENT DATASET
+                        </div>
+
+                        <h2>
+                            Runtime state
+                        </h2>
+
+                    </div>
+
+                </header>
+
+
+                <div class="simulator-stats">
+
+                    <div class="simulator-stat">
+
+                        <span>
+                            Payments
+                        </span>
+
+                        <strong>
+                            {{ metrics.total }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="simulator-stat">
+
+                        <span>
+                            Attempts
+                        </span>
+
+                        <strong>
+                            {{ metrics.attempts }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="simulator-stat">
+
+                        <span>
+                            Success rate
+                        </span>
+
+                        <strong>
+                            {{ metrics.success_rate }}%
+                        </strong>
+
+                    </div>
+
+
+                    <div class="simulator-stat">
+
+                        <span>
+                            Queued
+                        </span>
+
+                        <strong>
+                            {{ metrics.queued_jobs }}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <section class="simulator-panel simulator-note-panel">
+
+                <div class="simulator-note-mark">
+                    i
+                </div>
+
+                <div>
+
+                    <div class="eyebrow">
+                        TEST HARNESS
+                    </div>
+
+                    <h3>
+                        This is not a payment gateway.
+                    </h3>
+
+                    <p>
+                        The simulator intentionally models an
+                        unreliable processor so the reliability
+                        behavior of LedgerFlow can be observed,
+                        broken, and measured.
+                    </p>
+
+                </div>
+
+            </section>
+
+        </aside>
+
+    </section>
+
+
+    <footer class="simulator-footer">
+
+        <div>
+
+            <span class="simulator-footer-brand">
+                LedgerFlow
+            </span>
+
+            <span>
+                Controlled payment reliability testing
+            </span>
+
+        </div>
+
+        <a
+            href="{% url 'payments' %}"
+            class="simulator-footer-link"
+        >
+            View payment history
+            <span>→</span>
+        </a>
+
+    </footer>
+
+</section>
 
 {% endblock %}

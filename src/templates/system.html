@@ -1,0 +1,1012 @@
+{% extends "base.html" %}
+
+{% block title %}System · LedgerFlow{% endblock %}
+
+{% block content %}
+
+<section class="system-page">
+
+    <header class="system-header">
+
+        <div class="system-heading">
+
+            <div class="eyebrow">
+                SYSTEM OBSERVABILITY
+            </div>
+
+            <div class="system-title-row">
+
+                <h1>System</h1>
+
+                <span class="system-environment">
+                    <span class="system-environment-dot"></span>
+                    Test environment
+                </span>
+
+            </div>
+
+            <p>
+                Runtime visibility into the worker queue,
+                execution leases, retries, and uncertain
+                processor outcomes.
+            </p>
+
+        </div>
+
+
+        <div class="system-header-state">
+
+            <div class="system-state-indicator">
+
+                <span class="system-state-dot"></span>
+
+                <div>
+                    <strong>Operational</strong>
+                    <span>Reliability layer active</span>
+                </div>
+
+            </div>
+
+        </div>
+
+    </header>
+
+
+    <section class="system-command-strip">
+
+        <div class="system-command-item">
+
+            <span class="system-command-label">
+                QUEUED
+            </span>
+
+            <strong>
+                {{ metrics.queued_jobs }}
+            </strong>
+
+        </div>
+
+
+        <div class="system-command-item">
+
+            <span class="system-command-label">
+                PROCESSING
+            </span>
+
+            <strong>
+                {{ metrics.processing_jobs }}
+            </strong>
+
+        </div>
+
+
+        <div class="system-command-item">
+
+            <span class="system-command-label">
+                COMPLETED
+            </span>
+
+            <strong>
+                {{ metrics.completed_jobs }}
+            </strong>
+
+        </div>
+
+
+        <div class="system-command-item">
+
+            <span class="system-command-label">
+                FAILED
+            </span>
+
+            <strong>
+                {{ metrics.failed_jobs }}
+            </strong>
+
+        </div>
+
+
+        <div class="system-command-item">
+
+            <span class="system-command-label">
+                RECOVERED
+            </span>
+
+            <strong>
+                {{ metrics.recovered_jobs }}
+            </strong>
+
+        </div>
+
+    </section>
+
+
+    <section class="system-main-grid">
+
+
+        <div class="system-primary-column">
+
+
+            <!-- Worker Queue -->
+
+            <section class="system-panel system-queue-panel">
+
+                <header class="system-panel-header">
+
+                    <div>
+
+                        <div class="eyebrow">
+                            WORKER QUEUE
+                        </div>
+
+                        <h2>
+                            Execution pipeline
+                        </h2>
+
+                    </div>
+
+                    <span class="system-panel-tag">
+                        PostgreSQL
+                    </span>
+
+                </header>
+
+
+                <div class="system-pipeline">
+
+                    <div class="pipeline-stage">
+
+                        <div class="pipeline-stage-top">
+
+                            <span class="pipeline-stage-index">
+                                01
+                            </span>
+
+                            <span class="pipeline-stage-state">
+                                READY
+                            </span>
+
+                        </div>
+
+                        <div class="pipeline-stage-value">
+                            {{ metrics.queued_jobs }}
+                        </div>
+
+                        <strong>
+                            Queued
+                        </strong>
+
+                        <span>
+                            Awaiting worker claim
+                        </span>
+
+                    </div>
+
+
+                    <div class="pipeline-connector">
+                        <span></span>
+                    </div>
+
+
+                    <div class="pipeline-stage pipeline-stage-active">
+
+                        <div class="pipeline-stage-top">
+
+                            <span class="pipeline-stage-index">
+                                02
+                            </span>
+
+                            <span class="pipeline-stage-state">
+                                ACTIVE
+                            </span>
+
+                        </div>
+
+                        <div class="pipeline-stage-value">
+                            {{ metrics.processing_jobs }}
+                        </div>
+
+                        <strong>
+                            Processing
+                        </strong>
+
+                        <span>
+                            Worker holds lease
+                        </span>
+
+                    </div>
+
+
+                    <div class="pipeline-connector">
+                        <span></span>
+                    </div>
+
+
+                    <div class="pipeline-stage">
+
+                        <div class="pipeline-stage-top">
+
+                            <span class="pipeline-stage-index">
+                                03
+                            </span>
+
+                            <span class="pipeline-stage-state">
+                                DONE
+                            </span>
+
+                        </div>
+
+                        <div class="pipeline-stage-value">
+                            {{ metrics.completed_jobs }}
+                        </div>
+
+                        <strong>
+                            Completed
+                        </strong>
+
+                        <span>
+                            Execution confirmed
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <div class="system-queue-footer">
+
+                    <div>
+
+                        <span>
+                            Average processing
+                        </span>
+
+                        <strong>
+                            {{ metrics.average_processing_seconds }}s
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            Failed jobs
+                        </span>
+
+                        <strong>
+                            {{ metrics.failed_jobs }}
+                        </strong>
+
+                    </div>
+
+
+                    <div>
+
+                        <span>
+                            Recovered leases
+                        </span>
+
+                        <strong>
+                            {{ metrics.recovered_jobs }}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Worker Reliability -->
+
+            <section class="system-panel">
+
+                <header class="system-panel-header">
+
+                    <div>
+
+                        <div class="eyebrow">
+                            WORKER RELIABILITY
+                        </div>
+
+                        <h2>
+                            Lease and recovery behavior
+                        </h2>
+
+                    </div>
+
+                    <span class="system-panel-description">
+                        Crash recovery
+                    </span>
+
+                </header>
+
+
+                <div class="recovery-layout">
+
+                    <div class="recovery-visual">
+
+                        <div class="recovery-ring">
+
+                            <div class="recovery-ring-inner">
+
+                                <strong>
+                                    {{ metrics.recovered_jobs }}
+                                </strong>
+
+                                <span>
+                                    recovered
+                                </span>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="recovery-content">
+
+                        <div class="recovery-title-row">
+
+                            <div>
+
+                                <span class="system-mini-label">
+                                    WORKER LEASES
+                                </span>
+
+                                <h3>
+                                    Expired jobs are recoverable
+                                </h3>
+
+                            </div>
+
+                            <span class="recovery-status">
+                                ENABLED
+                            </span>
+
+                        </div>
+
+
+                        <p>
+                            Processing jobs receive a lease.
+                            If a worker disappears before completing
+                            the job, the expired lease makes the job
+                            eligible for recovery instead of leaving
+                            it permanently stuck.
+                        </p>
+
+
+                        <div class="recovery-facts">
+
+                            <div>
+
+                                <span>
+                                    Recovery events
+                                </span>
+
+                                <strong>
+                                    {{ metrics.recovered_jobs }}
+                                </strong>
+
+                            </div>
+
+
+                            <div>
+
+                                <span>
+                                    Completed jobs
+                                </span>
+
+                                <strong>
+                                    {{ metrics.completed_jobs }}
+                                </strong>
+
+                            </div>
+
+
+                            <div>
+
+                                <span>
+                                    Processing now
+                                </span>
+
+                                <strong>
+                                    {{ metrics.processing_jobs }}
+                                </strong>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Retry System -->
+
+            <section class="system-panel">
+
+                <header class="system-panel-header">
+
+                    <div>
+
+                        <div class="eyebrow">
+                            RETRY SYSTEM
+                        </div>
+
+                        <h2>
+                            Failure classification
+                        </h2>
+
+                    </div>
+
+                    <span class="system-panel-description">
+                        Attempt policy
+                    </span>
+
+                </header>
+
+
+                <div class="retry-grid">
+
+                    <div class="retry-card">
+
+                        <div class="retry-card-top">
+
+                            <span class="retry-card-index">
+                                01
+                            </span>
+
+                            <span class="retry-state retry-state-transient">
+                                RETRYABLE
+                            </span>
+
+                        </div>
+
+                        <h3>
+                            Transient failure
+                        </h3>
+
+                        <strong>
+                            {{ metrics.transient_failures }}
+                        </strong>
+
+                        <p>
+                            Temporary infrastructure or
+                            communication failures can create
+                            another processor attempt.
+                        </p>
+
+                    </div>
+
+
+                    <div class="retry-card">
+
+                        <div class="retry-card-top">
+
+                            <span class="retry-card-index">
+                                02
+                            </span>
+
+                            <span class="retry-state retry-state-permanent">
+                                TERMINAL
+                            </span>
+
+                        </div>
+
+                        <h3>
+                            Permanent failure
+                        </h3>
+
+                        <strong>
+                            {{ metrics.permanent_failures }}
+                        </strong>
+
+                        <p>
+                            Permanent processor rejection is
+                            not automatically retried.
+                        </p>
+
+                    </div>
+
+
+                    <div class="retry-card retry-card-uncertain">
+
+                        <div class="retry-card-top">
+
+                            <span class="retry-card-index">
+                                03
+                            </span>
+
+                            <span class="retry-state retry-state-unknown">
+                                RECONCILE
+                            </span>
+
+                        </div>
+
+                        <h3>
+                            Unknown outcome
+                        </h3>
+
+                        <strong>
+                            {{ metrics.unknown_attempts }}
+                        </strong>
+
+                        <p>
+                            An uncertain processor result is
+                            preserved for reconciliation instead
+                            of blindly creating another operation.
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <div class="retry-footer">
+
+                    <div class="retry-backoff">
+
+                        <span>
+                            RETRY BACKOFF
+                        </span>
+
+                        <div class="backoff-sequence">
+
+                            <span>5s</span>
+                            <i></i>
+                            <span>10s</span>
+                            <i></i>
+                            <span>20s</span>
+                            <i></i>
+                            <span>60s max</span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="retry-attempts">
+
+                        <span>
+                            TOTAL RETRIES
+                        </span>
+
+                        <strong>
+                            {{ metrics.retry_attempts }}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </div>
+
+
+        <aside class="system-side-column">
+
+
+            <!-- System Health -->
+
+            <section class="system-panel system-health-panel">
+
+                <header class="system-panel-header">
+
+                    <div>
+
+                        <div class="eyebrow">
+                            SYSTEM HEALTH
+                        </div>
+
+                        <h2>
+                            Reliability signals
+                        </h2>
+
+                    </div>
+
+                </header>
+
+
+                <div class="health-status">
+
+                    <div class="health-status-mark">
+                        <span></span>
+                    </div>
+
+                    <div>
+
+                        <strong>
+                            Reliability layer active
+                        </strong>
+
+                        <span>
+                            Database-backed execution state
+                        </span>
+
+                    </div>
+
+                </div>
+
+
+                <div class="health-list">
+
+                    <div class="health-row">
+
+                        <div>
+                            <span class="health-dot health-dot-good"></span>
+                            Queue availability
+                        </div>
+
+                        <strong>
+                            Ready
+                        </strong>
+
+                    </div>
+
+
+                    <div class="health-row">
+
+                        <div>
+                            <span class="health-dot health-dot-good"></span>
+                            Worker leasing
+                        </div>
+
+                        <strong>
+                            Active
+                        </strong>
+
+                    </div>
+
+
+                    <div class="health-row">
+
+                        <div>
+                            <span class="health-dot health-dot-good"></span>
+                            Retry classification
+                        </div>
+
+                        <strong>
+                            Active
+                        </strong>
+
+                    </div>
+
+
+                    <div class="health-row">
+
+                        <div>
+                            <span class="health-dot health-dot-good"></span>
+                            Reconciliation
+                        </div>
+
+                        <strong>
+                            Available
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Uncertain Outcomes -->
+
+            <section class="system-panel system-uncertain-panel">
+
+                <header class="system-panel-header">
+
+                    <div>
+
+                        <div class="eyebrow">
+                            UNCERTAIN OUTCOMES
+                        </div>
+
+                        <h2>
+                            Reconciliation queue
+                        </h2>
+
+                    </div>
+
+                </header>
+
+
+                <div class="uncertain-hero">
+
+                    <strong>
+                        {{ metrics.unknown_attempts }}
+                    </strong>
+
+                    <span>
+                        unresolved processor attempts
+                    </span>
+
+                </div>
+
+
+                {% if metrics.unknown_attempts %}
+
+                <div class="uncertain-warning">
+
+                    <span class="uncertain-warning-icon">
+                        !
+                    </span>
+
+                    <div>
+
+                        <strong>
+                            Outcome confirmation required
+                        </strong>
+
+                        <p>
+                            These attempts represent operations
+                            where the processor result could not
+                            be confirmed at execution time.
+                        </p>
+
+                    </div>
+
+                </div>
+
+                {% else %}
+
+                <div class="uncertain-clear">
+
+                    <span>
+                        ✓
+                    </span>
+
+                    <div>
+
+                        <strong>
+                            No unresolved outcomes
+                        </strong>
+
+                        <p>
+                            All recorded processor attempts have
+                            a resolved execution state.
+                        </p>
+
+                    </div>
+
+                </div>
+
+                {% endif %}
+
+            </section>
+
+
+            <!-- Execution Statistics -->
+
+            <section class="system-panel">
+
+                <header class="system-panel-header">
+
+                    <div>
+
+                        <div class="eyebrow">
+                            EXECUTION STATISTICS
+                        </div>
+
+                        <h2>
+                            Current dataset
+                        </h2>
+
+                    </div>
+
+                </header>
+
+
+                <div class="system-stat-list">
+
+                    <div class="system-stat-row">
+
+                        <span>
+                            Payments
+                        </span>
+
+                        <strong>
+                            {{ metrics.total }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="system-stat-row">
+
+                        <span>
+                            Processor attempts
+                        </span>
+
+                        <strong>
+                            {{ metrics.attempts }}
+                        </strong>
+
+                    </div>
+
+
+                    <div class="system-stat-row">
+
+                        <span>
+                            Success rate
+                        </span>
+
+                        <strong>
+                            {{ metrics.success_rate }}%
+                        </strong>
+
+                    </div>
+
+
+                    <div class="system-stat-row">
+
+                        <span>
+                            Average processing
+                        </span>
+
+                        <strong>
+                            {{ metrics.average_processing_seconds }}s
+                        </strong>
+
+                    </div>
+
+
+                    <div class="system-stat-row">
+
+                        <span>
+                            Recovered jobs
+                        </span>
+
+                        <strong>
+                            {{ metrics.recovered_jobs }}
+                        </strong>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- Architecture -->
+
+            <section class="system-panel system-architecture-panel">
+
+                <div class="eyebrow">
+                    EXECUTION ARCHITECTURE
+                </div>
+
+                <h2>
+                    State belongs to the system,
+                    not the interface.
+                </h2>
+
+                <p>
+                    The UI reflects database-backed payment,
+                    attempt, job, and processor-operation state.
+                    It does not simulate successful execution.
+                </p>
+
+
+                <div class="architecture-stack">
+
+                    <div class="architecture-node">
+
+                        <span>01</span>
+
+                        <div>
+                            <strong>
+                                PostgreSQL
+                            </strong>
+
+                            <small>
+                                Durable state
+                            </small>
+                        </div>
+
+                    </div>
+
+
+                    <div class="architecture-line"></div>
+
+
+                    <div class="architecture-node">
+
+                        <span>02</span>
+
+                        <div>
+                            <strong>
+                                Worker
+                            </strong>
+
+                            <small>
+                                Lease + execution
+                            </small>
+                        </div>
+
+                    </div>
+
+
+                    <div class="architecture-line"></div>
+
+
+                    <div class="architecture-node">
+
+                        <span>03</span>
+
+                        <div>
+                            <strong>
+                                Processor
+                            </strong>
+
+                            <small>
+                                Unreliable dependency
+                            </small>
+                        </div>
+
+                    </div>
+
+
+                    <div class="architecture-line"></div>
+
+
+                    <div class="architecture-node">
+
+                        <span>04</span>
+
+                        <div>
+                            <strong>
+                                Reconciliation
+                            </strong>
+
+                            <small>
+                                Outcome recovery
+                            </small>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </aside>
+
+    </section>
+
+
+    <footer class="system-footer">
+
+        <div>
+
+            <span class="system-footer-brand">
+                LedgerFlow
+            </span>
+
+            <span>
+                Payment reliability simulator
+            </span>
+
+        </div>
+
+
+        <div>
+
+            <span>
+                PostgreSQL-backed test environment
+            </span>
+
+        </div>
+
+    </footer>
+
+</section>
+
+{% endblock %}

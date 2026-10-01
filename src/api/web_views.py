@@ -1,7 +1,7 @@
 from django.shortcuts import get_object_or_404, redirect, render
 
 from payments.jobs import enqueue_payment
-from payments.models import Payment, PaymentAttempt
+from payments.models import Payment, PaymentAttempt, PaymentJob
 
 from .services import (
     IdempotencyConflict,
@@ -12,16 +12,25 @@ from .services import (
 
 def _metrics():
     payments = Payment.objects.all()
+    attempts = PaymentAttempt.objects.all()
+    jobs = PaymentJob.objects.all()
 
     total = payments.count()
+
     succeeded = payments.filter(
         status=Payment.Status.SUCCEEDED
     ).count()
+
     processing = payments.filter(
         status=Payment.Status.PROCESSING
     ).count()
+
     failed = payments.filter(
         status=Payment.Status.FAILED
+    ).count()
+
+    created = payments.filter(
+        status=Payment.Status.CREATED
     ).count()
 
     success_rate = (
@@ -30,27 +39,141 @@ def _metrics():
         else 0
     )
 
-    attempts = PaymentAttempt.objects.all()
-
     unknown_attempts = attempts.filter(
         status=PaymentAttempt.Status.UNKNOWN
     ).count()
 
+    transient_failures = attempts.filter(
+        failure_type="TRANSIENT"
+    ).count()
+
+    permanent_failures = attempts.filter(
+        failure_type="PERMANENT"
+    ).count()
+
+    retry_attempts = 0
+
+    for payment in payments.prefetch_related("attempts"):
+        attempt_count = len(payment.attempts.all())
+
+        if attempt_count > 1:
+            retry_attempts += attempt_count - 1
+
+    queued_jobs = jobs.filter(
+        status=PaymentJob.Status.QUEUED
+    ).count()
+
+    processing_jobs = jobs.filter(
+        status=PaymentJob.Status.PROCESSING
+    ).count()
+
+    completed_jobs = jobs.filter(
+        status=PaymentJob.Status.COMPLETED
+    ).count()
+
+    failed_jobs = jobs.filter(
+        status=PaymentJob.Status.FAILED
+    ).count()
+
+    recovered_jobs = jobs.filter(
+        last_error__icontains="lease expired"
+    ).count()
+
+    processing_durations = []
+
+    for job in jobs.filter(
+        started_at__isnull=False,
+        completed_at__isnull=False,
+    ).only(
+        "started_at",
+        "completed_at",
+    ):
+        duration = (
+            job.completed_at - job.started_at
+        ).total_seconds()
+
+        processing_durations.append(duration)
+
+    average_processing_seconds = (
+        round(
+            sum(processing_durations)
+            / len(processing_durations),
+            2,
+        )
+        if processing_durations
+        else 0
+    )
+
+    attempt_total = attempts.count()
+
+    unknown_rate = (
+        round(
+            (unknown_attempts / attempt_total) * 100,
+            1,
+        )
+        if attempt_total
+        else 0
+    )
+
+    transient_failure_rate = (
+        round(
+            (transient_failures / attempt_total) * 100,
+            1,
+        )
+        if attempt_total
+        else 0
+    )
+
+    permanent_failure_rate = (
+        round(
+            (permanent_failures / attempt_total) * 100,
+            1,
+        )
+        if attempt_total
+        else 0
+    )
+
+    recovery_rate = (
+        round(
+            (recovered_jobs / completed_jobs) * 100,
+            1,
+        )
+        if completed_jobs
+        else 0
+    )
+
     return {
         "total": total,
+        "created": created,
         "succeeded": succeeded,
         "processing": processing,
         "failed": failed,
         "success_rate": success_rate,
-        "attempts": attempts.count(),
+        "attempts": attempt_total,
+        "retry_attempts": retry_attempts,
         "unknown_attempts": unknown_attempts,
+        "transient_failures": transient_failures,
+        "permanent_failures": permanent_failures,
+        "queued_jobs": queued_jobs,
+        "processing_jobs": processing_jobs,
+        "completed_jobs": completed_jobs,
+        "failed_jobs": failed_jobs,
+        "recovered_jobs": recovered_jobs,
+        "average_processing_seconds": average_processing_seconds,
+        "unknown_rate": unknown_rate,
+        "transient_failure_rate": transient_failure_rate,
+        "permanent_failure_rate": permanent_failure_rate,
+        "recovery_rate": recovery_rate,
     }
 
 
 def dashboard(request):
     recent_payments = (
         Payment.objects
-        .select_related("idempotency_record")
+        .select_related(
+            "idempotency_record",
+            "job",
+        )
         .prefetch_related("attempts")
         .order_by("-created_at")[:8]
     )
@@ -68,7 +191,10 @@ def dashboard(request):
 def payments_page(request):
     payments = (
         Payment.objects
-        .select_related("idempotency_record")
+        .select_related(
+            "idempotency_record",
+            "job",
+        )
         .prefetch_related("attempts")
         .order_by("-created_at")
     )
@@ -86,14 +212,30 @@ def payments_page(request):
 def payment_detail(request, payment_id):
     payment = get_object_or_404(
         Payment.objects.select_related(
-            "idempotency_record"
+            "idempotency_record",
+            "job",
         ),
         id=payment_id,
     )
 
-    attempts = payment.attempts.order_by(
-        "created_at"
-    )
+    attempts = payment.attempts.order_by("created_at")
+
+    latest_attempt = attempts.last()
+
+    processing_seconds = None
+
+    if (
+        payment.job
+        and payment.job.started_at
+        and payment.job.completed_at
+    ):
+        processing_seconds = round(
+            (
+                payment.job.completed_at
+                - payment.job.started_at
+            ).total_seconds(),
+            2,
+        )
 
     return render(
         request,
@@ -101,6 +243,9 @@ def payment_detail(request, payment_id):
         {
             "payment": payment,
             "attempts": attempts,
+            "latest_attempt": latest_attempt,
+            "processing_seconds": processing_seconds,
+            "metrics": _metrics(),
         },
     )
 
@@ -109,9 +254,7 @@ def simulator_page(request):
     if request.method == "POST":
         amount = request.POST.get("amount")
         currency = request.POST.get("currency")
-        idempotency_key = request.POST.get(
-            "idempotency_key"
-        )
+        idempotency_key = request.POST.get("idempotency_key")
         processor_behavior = request.POST.get(
             "processor_behavior",
             "SUCCESS",
