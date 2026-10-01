@@ -450,7 +450,7 @@ class PaymentProcessingTests(TestCase):
 
         self.assertEqual(
             job.status,
-            PaymentJob.Status.FAILED,
+            PaymentJob.Status.QUEUED,
         )
 
         self.assertEqual(

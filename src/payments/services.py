@@ -4,6 +4,7 @@ from django.utils import timezone
 from .models import (
     Payment,
     PaymentAttempt,
+    PaymentJob,
     ProcessorOperation,
 )
 from .processor import (
@@ -13,26 +14,36 @@ from .processor import (
     UnknownProcessorOutcome,
 )
 
-
 processor = ProcessorSimulator()
 
 
 def process_payment(payment, behavior="SUCCESS"):
     """
-    Process one logical payment operation.
+    Legacy synchronous processing helper.
 
-    A payment can have multiple attempts, but each invocation of the
-    processor creates at most one processor operation.
+    The production API uses PaymentJob + worker processing.
+    This function remains useful for reliability tests and
+    backwards-compatible service behavior.
     """
-
     with transaction.atomic():
         payment.status = Payment.Status.PROCESSING
+
         payment.save(
-            update_fields=["status", "updated_at"]
+            update_fields=[
+                "status",
+                "updated_at",
+            ]
         )
 
     try:
-        operation_id, _ = processor.execute(behavior)
+        operation_id, outcome = processor.execute(
+            behavior=behavior,
+        )
+
+        if outcome != "SUCCESS":
+            raise RuntimeError(
+                f"Unexpected processor outcome: {outcome}"
+            )
 
         with transaction.atomic():
             attempt = PaymentAttempt.objects.create(
@@ -44,8 +55,12 @@ def process_payment(payment, behavior="SUCCESS"):
             )
 
             payment.status = Payment.Status.SUCCEEDED
+
             payment.save(
-                update_fields=["status", "updated_at"]
+                update_fields=[
+                    "status",
+                    "updated_at",
+                ]
             )
 
         return attempt
@@ -65,11 +80,11 @@ def process_payment(payment, behavior="SUCCESS"):
         with transaction.atomic():
             attempt = PaymentAttempt.objects.create(
                 payment=payment,
-                processor_operation_id="",
+                processor_operation_id=exc.operation_id,
                 status=PaymentAttempt.Status.FAILED,
                 failure_type="TRANSIENT",
                 error=str(exc),
-                completed_at=timezone.now(),
+                completed_at=None,
             )
 
         return attempt
@@ -78,7 +93,7 @@ def process_payment(payment, behavior="SUCCESS"):
         with transaction.atomic():
             attempt = PaymentAttempt.objects.create(
                 payment=payment,
-                processor_operation_id="",
+                processor_operation_id=exc.operation_id,
                 status=PaymentAttempt.Status.FAILED,
                 failure_type="PERMANENT",
                 error=str(exc),
@@ -86,8 +101,12 @@ def process_payment(payment, behavior="SUCCESS"):
             )
 
             payment.status = Payment.Status.FAILED
+
             payment.save(
-                update_fields=["status", "updated_at"]
+                update_fields=[
+                    "status",
+                    "updated_at",
+                ]
             )
 
         return attempt
@@ -95,20 +114,26 @@ def process_payment(payment, behavior="SUCCESS"):
 
 def reconcile_payment(payment):
     """
-    Resolve UNKNOWN attempts by querying the original processor
-    operation.
+    Resolve UNKNOWN payment attempts by querying the original
+    processor operation.
 
     Reconciliation never creates a new processor operation.
     """
-
-    unknown_attempts = payment.attempts.filter(
-        status=PaymentAttempt.Status.UNKNOWN
+    unknown_attempts = (
+        payment.attempts
+        .filter(
+            status=PaymentAttempt.Status.UNKNOWN,
+        )
+        .order_by("created_at")
     )
 
     for attempt in unknown_attempts:
         processor_status = processor.get_status(
             attempt.processor_operation_id
         )
+
+        if processor_status is None:
+            continue
 
         if processor_status == ProcessorOperation.Outcome.SUCCESS:
             with transaction.atomic():
@@ -123,34 +148,82 @@ def reconcile_payment(payment):
                 )
 
                 payment.status = Payment.Status.SUCCEEDED
+
                 payment.save(
                     update_fields=[
                         "status",
                         "updated_at",
                     ]
                 )
+
+                job = (
+                    PaymentJob.objects
+                    .filter(payment=payment)
+                    .first()
+                )
+
+                if job is not None:
+                    job.status = PaymentJob.Status.COMPLETED
+                    job.completed_at = timezone.now()
+                    job.lease_expires_at = None
+                    job.last_error = ""
+
+                    job.save(
+                        update_fields=[
+                            "status",
+                            "completed_at",
+                            "lease_expires_at",
+                            "last_error",
+                            "updated_at",
+                        ]
+                    )
 
             return attempt
 
         if processor_status == ProcessorOperation.Outcome.FAILED:
             with transaction.atomic():
                 attempt.status = PaymentAttempt.Status.FAILED
+                attempt.failure_type = "PERMANENT"
                 attempt.completed_at = timezone.now()
 
                 attempt.save(
                     update_fields=[
                         "status",
+                        "failure_type",
                         "completed_at",
                     ]
                 )
 
                 payment.status = Payment.Status.FAILED
+
                 payment.save(
                     update_fields=[
                         "status",
                         "updated_at",
                     ]
                 )
+
+                job = (
+                    PaymentJob.objects
+                    .filter(payment=payment)
+                    .first()
+                )
+
+                if job is not None:
+                    job.status = PaymentJob.Status.COMPLETED
+                    job.completed_at = timezone.now()
+                    job.lease_expires_at = None
+                    job.last_error = ""
+
+                    job.save(
+                        update_fields=[
+                            "status",
+                            "completed_at",
+                            "lease_expires_at",
+                            "last_error",
+                            "updated_at",
+                        ]
+                    )
 
             return attempt
 
@@ -159,15 +232,14 @@ def reconcile_payment(payment):
 
 def retry_payment(payment, behavior="SUCCESS"):
     """
-    Retry only a transiently failed processing attempt.
+    Retry a transiently failed payment.
 
-    Permanent failures, unknown outcomes, succeeded payments, and
-    payments without a failed attempt are not retryable.
+    Async payments are requeued through PaymentJob.
+
+    Legacy payments without a PaymentJob use the original
+    synchronous processing helper so existing service behavior
+    remains compatible.
     """
-
-    if payment.status != Payment.Status.PROCESSING:
-        return None
-
     latest_attempt = (
         payment.attempts
         .order_by("-created_at")
@@ -183,7 +255,39 @@ def retry_payment(payment, behavior="SUCCESS"):
     if latest_attempt.failure_type != "TRANSIENT":
         return None
 
-    return process_payment(
-        payment,
-        behavior=behavior,
+    job = (
+        PaymentJob.objects
+        .filter(payment=payment)
+        .first()
     )
+
+    if job is None:
+        return process_payment(
+            payment,
+            behavior=behavior,
+        )
+
+    now = timezone.now()
+
+    job.status = PaymentJob.Status.QUEUED
+    job.processor_behavior = behavior
+    job.available_at = now
+    job.lease_expires_at = None
+    job.completed_at = None
+    job.last_error = ""
+    job.processor_operation_id = ""
+
+    job.save(
+        update_fields=[
+            "status",
+            "processor_behavior",
+            "available_at",
+            "lease_expires_at",
+            "completed_at",
+            "last_error",
+            "processor_operation_id",
+            "updated_at",
+        ]
+    )
+
+    return job

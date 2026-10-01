@@ -3,9 +3,11 @@ import uuid
 from django.db import transaction
 
 from .jobs import (
+    MAX_JOB_ATTEMPTS,
     claim_next_job,
     complete_job,
     fail_job,
+    retry_job,
 )
 from .models import Payment, PaymentAttempt
 from .processor import (
@@ -29,6 +31,7 @@ def process_next_job(
 
     if not job.processor_operation_id:
         job.processor_operation_id = str(uuid.uuid4())
+
         job.save(
             update_fields=[
                 "processor_operation_id",
@@ -46,6 +49,7 @@ def process_next_job(
     try:
         with transaction.atomic():
             payment.status = Payment.Status.PROCESSING
+
             payment.save(
                 update_fields=[
                     "status",
@@ -65,7 +69,7 @@ def process_next_job(
 
         if outcome == "SUCCESS":
             with transaction.atomic():
-                existing_attempt = (
+                attempt = (
                     PaymentAttempt.objects
                     .filter(
                         payment=payment,
@@ -74,7 +78,7 @@ def process_next_job(
                     .first()
                 )
 
-                if existing_attempt is None:
+                if attempt is None:
                     PaymentAttempt.objects.create(
                         payment=payment,
                         processor_operation_id=operation_id,
@@ -82,11 +86,12 @@ def process_next_job(
                         failure_type="",
                     )
                 else:
-                    existing_attempt.status = (
+                    attempt.status = (
                         PaymentAttempt.Status.SUCCESS
                     )
-                    existing_attempt.completed_at = None
-                    existing_attempt.save(
+                    attempt.completed_at = None
+
+                    attempt.save(
                         update_fields=[
                             "status",
                             "completed_at",
@@ -94,6 +99,7 @@ def process_next_job(
                     )
 
                 payment.status = Payment.Status.SUCCEEDED
+
                 payment.save(
                     update_fields=[
                         "status",
@@ -120,7 +126,10 @@ def process_next_job(
                 },
             )
 
-            fail_job(job, exc)
+            fail_job(
+                job,
+                exc,
+            )
 
         return job
 
@@ -128,13 +137,32 @@ def process_next_job(
         with transaction.atomic():
             PaymentAttempt.objects.create(
                 payment=payment,
-                processor_operation_id=job.processor_operation_id,
+                processor_operation_id=exc.operation_id,
                 status=PaymentAttempt.Status.FAILED,
                 failure_type="TRANSIENT",
                 error=str(exc),
+                completed_at=None,
             )
 
-            fail_job(job, exc)
+            if job.attempts < MAX_JOB_ATTEMPTS:
+                retry_job(
+                    job,
+                    exc,
+                )
+            else:
+                payment.status = Payment.Status.FAILED
+
+                payment.save(
+                    update_fields=[
+                        "status",
+                        "updated_at",
+                    ]
+                )
+
+                fail_job(
+                    job,
+                    exc,
+                )
 
         return job
 
@@ -142,13 +170,14 @@ def process_next_job(
         with transaction.atomic():
             PaymentAttempt.objects.create(
                 payment=payment,
-                processor_operation_id=job.processor_operation_id,
+                processor_operation_id=exc.operation_id,
                 status=PaymentAttempt.Status.FAILED,
                 failure_type="PERMANENT",
                 error=str(exc),
             )
 
             payment.status = Payment.Status.FAILED
+
             payment.save(
                 update_fields=[
                     "status",
@@ -156,6 +185,9 @@ def process_next_job(
                 ]
             )
 
-            fail_job(job, exc)
+            fail_job(
+                job,
+                exc,
+            )
 
         return job

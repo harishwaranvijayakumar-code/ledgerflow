@@ -8,11 +8,15 @@ class ProcessorError(Exception):
 
 
 class TransientProcessorError(ProcessorError):
-    pass
+    def __init__(self, message, operation_id):
+        self.operation_id = operation_id
+        super().__init__(message)
 
 
 class PermanentProcessorError(ProcessorError):
-    pass
+    def __init__(self, message, operation_id):
+        self.operation_id = operation_id
+        super().__init__(message)
 
 
 class UnknownProcessorOutcome(ProcessorError):
@@ -30,15 +34,17 @@ class ProcessorSimulator:
         if operation_id is None:
             operation_id = str(uuid.uuid4())
 
-        existing = ProcessorOperation.objects.filter(
-            operation_id=operation_id
-        ).first()
+        existing = (
+            ProcessorOperation.objects
+            .filter(operation_id=operation_id)
+            .first()
+        )
 
         if existing is not None:
-            if existing.outcome == ProcessorOperation.Outcome.SUCCESS:
-                return operation_id, "SUCCESS"
-
-            return operation_id, "FAILED"
+            return (
+                operation_id,
+                existing.outcome,
+            )
 
         if behavior == "SUCCESS":
             ProcessorOperation.objects.create(
@@ -55,7 +61,8 @@ class ProcessorSimulator:
             )
 
             raise TransientProcessorError(
-                "Temporary processor failure"
+                "Temporary processor failure",
+                operation_id,
             )
 
         if behavior == "PERMANENT_FAILURE":
@@ -65,7 +72,8 @@ class ProcessorSimulator:
             )
 
             raise PermanentProcessorError(
-                "Permanent processor rejection"
+                "Permanent processor rejection",
+                operation_id,
             )
 
         if behavior == "UNKNOWN":
