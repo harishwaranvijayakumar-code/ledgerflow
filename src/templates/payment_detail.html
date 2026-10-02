@@ -11,6 +11,10 @@
     data-payment-state="{{ payment.status }}"
 >
 
+    <!-- =====================================================
+         TOP NAVIGATION
+         ===================================================== -->
+
     <div class="payment-detail-topbar">
 
         <a
@@ -22,82 +26,90 @@
         </a>
 
         <div class="payment-detail-context">
+            <span class="payment-detail-context-dot"></span>
             TEST MODE
         </div>
 
     </div>
 
 
-    <section class="payment-hero">
+    <!-- =====================================================
+         TRANSACTION HEADER
+         ===================================================== -->
 
-        <div class="payment-hero-main">
+    <section class="payment-detail-header">
 
-            <div
-                class="payment-orb
-                {% if payment.status == 'SUCCEEDED' %}
-                    payment-orb-success
-                {% elif payment.status == 'FAILED' %}
-                    payment-orb-failed
-                {% elif payment.status == 'PROCESSING' %}
-                    payment-orb-processing
-                {% else %}
-                    payment-orb-created
-                {% endif %}"
-            >
+        <div class="payment-detail-header-main">
 
-                <div class="payment-orb-core"></div>
-
+            <div class="eyebrow">
+                PAYMENT
             </div>
 
+            <div class="payment-number">
+                #{{ payment.id }}
+            </div>
 
-            <div class="payment-identity">
-
-                <div class="eyebrow">
-                    PAYMENT
-                </div>
-
-                <div class="payment-number">
-                    #{{ payment.id }}
-                </div>
-
-                <div class="payment-created">
-                    Created
-                    {{ payment.created_at|date:"M j, Y · H:i:s" }}
-                </div>
-
+            <div class="payment-created">
+                Created
+                {{ payment.created_at|date:"M j, Y · H:i:s" }}
             </div>
 
         </div>
 
 
-        <div class="payment-hero-value">
+        <div class="payment-detail-header-value">
 
-            <div class="payment-hero-amount">
-                {{ payment.amount }}
+            <div class="payment-money">
+
+                <!-- Dynamic currency icon -->
+
+                <div
+                    class="payment-currency-icon"
+                    data-currency="{{ payment.currency }}"
+                    aria-label="{{ payment.currency }} currency"
+                >
+                    <span class="payment-currency-symbol">
+                        {{ payment.currency }}
+                    </span>
+                </div>
+
+
+                <div class="payment-money-content">
+
+                    <div class="payment-hero-amount">
+                        {{ payment.amount }}
+                    </div>
+
+                    <div class="payment-hero-currency">
+                        {{ payment.currency }}
+                    </div>
+
+                </div>
+
             </div>
 
-            <div class="payment-hero-currency">
-                {{ payment.currency }}
+
+            <div class="payment-status status-{{ payment.status|lower }}">
+
+                <span class="payment-status-indicator"></span>
+
+                <span>
+                    {{ payment.get_status_display }}
+                </span>
+
             </div>
-
-            <span
-                class="payment-status status-{{ payment.status|lower }}"
-            >
-
-                <span
-                    class="payment-status-indicator"
-                ></span>
-
-                {{ payment.get_status_display }}
-
-            </span>
 
         </div>
 
     </section>
 
 
+    <!-- =====================================================
+         CONTEXTUAL ACTIONS
+         ===================================================== -->
+
     {% if payment.status == 'PROCESSING' and latest_attempt %}
+
         {% if latest_attempt.status == 'UNKNOWN' %}
 
         <section class="payment-action-banner payment-action-warning">
@@ -109,12 +121,12 @@
                 </span>
 
                 <strong>
-                    The processor outcome is currently uncertain.
+                    Processor outcome is uncertain.
                 </strong>
 
                 <p>
-                    Reconciliation checks the original processor
-                    operation rather than creating a duplicate operation.
+                    LedgerFlow can query the original processor operation
+                    without creating another processor operation.
                 </p>
 
             </div>
@@ -123,6 +135,7 @@
                 method="post"
                 action="{% url 'payment-reconcile' payment.id %}"
             >
+
                 {% csrf_token %}
 
                 <button
@@ -137,61 +150,61 @@
 
         </section>
 
-        {% endif %}
-    {% endif %}
+        {% elif latest_attempt.status == 'FAILED' and latest_attempt.failure_type == 'TRANSIENT' %}
 
+        <section class="payment-action-banner">
 
-    {% if payment.status == 'PROCESSING' and latest_attempt %}
-        {% if latest_attempt.status == 'FAILED' %}
-            {% if latest_attempt.failure_type == 'TRANSIENT' %}
+            <div class="payment-action-copy">
 
-            <section class="payment-action-banner">
+                <span class="payment-action-label">
+                    RETRY AVAILABLE
+                </span>
 
-                <div class="payment-action-copy">
+                <strong>
+                    The latest processor attempt failed transiently.
+                </strong>
 
-                    <span class="payment-action-label">
-                        RETRY AVAILABLE
-                    </span>
+                <p>
+                    Retry the same logical payment with a new processor
+                    execution attempt.
+                </p>
 
-                    <strong>
-                        The latest processor attempt failed transiently.
-                    </strong>
+            </div>
 
-                    <p>
-                        Retry the same logical payment with a new
-                        processor execution attempt.
-                    </p>
+            <form
+                method="post"
+                action="{% url 'payment-retry' payment.id %}"
+            >
 
-                </div>
+                {% csrf_token %}
 
-                <form
-                    method="post"
-                    action="{% url 'payment-retry' payment.id %}"
+                <button
+                    type="submit"
+                    class="button button-dark"
                 >
-                    {% csrf_token %}
+                    Retry payment
+                    <span class="button-arrow">↗</span>
+                </button>
 
-                    <button
-                        type="submit"
-                        class="button button-dark"
-                    >
-                        Retry payment
-                        <span class="button-arrow">↗</span>
-                    </button>
+            </form>
 
-                </form>
+        </section>
 
-            </section>
-
-            {% endif %}
         {% endif %}
+
     {% endif %}
 
+
+    <!-- =====================================================
+         PAYMENT LIFECYCLE
+         ===================================================== -->
 
     <section class="payment-lifecycle-section">
 
         <div class="section-heading">
 
             <div>
+
                 <div class="eyebrow">
                     PAYMENT LIFECYCLE
                 </div>
@@ -199,7 +212,9 @@
                 <h2>
                     Execution state
                 </h2>
+
             </div>
+
 
             {% if processing_seconds is not None %}
 
@@ -222,80 +237,64 @@
 
         <div class="payment-lifecycle">
 
-            <div
-                class="life-step
-                {% if payment.status == 'CREATED'
-                    or payment.status == 'PROCESSING'
-                    or payment.status == 'SUCCEEDED'
-                    or payment.status == 'FAILED' %}
-                    is-complete
-                {% endif %}"
-            >
+
+            <!-- CREATED -->
+
+            <div class="life-step {% if payment.status == 'CREATED' or payment.status == 'PROCESSING' or payment.status == 'SUCCEEDED' or payment.status == 'FAILED' %}is-complete{% endif %}">
 
                 <div class="life-node">
                     <span>01</span>
                 </div>
 
                 <div class="life-content">
-                    <strong>Created</strong>
+
+                    <strong>
+                        Created
+                    </strong>
+
                     <span>
                         Logical payment accepted
                     </span>
+
                 </div>
 
             </div>
 
 
-            <div
-                class="life-line
-                {% if payment.status == 'PROCESSING'
-                    or payment.status == 'SUCCEEDED'
-                    or payment.status == 'FAILED' %}
-                    is-active
-                {% endif %}"
-            ></div>
+            <div class="life-line {% if payment.status == 'PROCESSING' or payment.status == 'SUCCEEDED' or payment.status == 'FAILED' %}is-active{% endif %}">
+            </div>
 
 
-            <div
-                class="life-step
-                {% if payment.status == 'PROCESSING' %}
-                    is-current
-                {% elif payment.status == 'SUCCEEDED'
-                    or payment.status == 'FAILED' %}
-                    is-complete
-                {% endif %}"
-            >
+            <!-- PROCESSING -->
+
+            <div class="life-step {% if payment.status == 'PROCESSING' %}is-current{% elif payment.status == 'SUCCEEDED' or payment.status == 'FAILED' %}is-complete{% endif %}">
 
                 <div class="life-node">
                     <span>02</span>
                 </div>
 
                 <div class="life-content">
-                    <strong>Processing</strong>
+
+                    <strong>
+                        Processing
+                    </strong>
+
                     <span>
                         Worker executing payment
                     </span>
+
                 </div>
 
             </div>
 
 
-            <div
-                class="life-line
-                {% if payment.status == 'SUCCEEDED'
-                    or payment.status == 'FAILED' %}
-                    is-active
-                {% endif %}"
-            ></div>
+            <div class="life-line {% if payment.status == 'SUCCEEDED' or payment.status == 'FAILED' %}is-active{% endif %}">
+            </div>
 
 
-            <div
-                class="life-step
-                {% if payment.status == 'SUCCEEDED'
-                    or payment.status == 'FAILED' %}
-                    is-current
-                {% endif %}"
-            >
+            <!-- OUTCOME -->
+
+            <div class="life-step {% if payment.status == 'SUCCEEDED' or payment.status == 'FAILED' %}is-current{% endif %}">
 
                 <div class="life-node">
                     <span>03</span>
@@ -305,7 +304,9 @@
 
                     {% if payment.status == 'SUCCEEDED' %}
 
-                    <strong>Succeeded</strong>
+                    <strong>
+                        Succeeded
+                    </strong>
 
                     <span>
                         Processor outcome confirmed
@@ -313,7 +314,9 @@
 
                     {% elif payment.status == 'FAILED' %}
 
-                    <strong>Failed</strong>
+                    <strong>
+                        Failed
+                    </strong>
 
                     <span>
                         Payment reached a terminal failure
@@ -321,7 +324,9 @@
 
                     {% else %}
 
-                    <strong>Outcome</strong>
+                    <strong>
+                        Outcome
+                    </strong>
 
                     <span>
                         Awaiting final resolution
@@ -338,15 +343,28 @@
     </section>
 
 
+    <!-- =====================================================
+         PAYMENT INFORMATION
+         ===================================================== -->
+
     <section class="payment-information-grid">
 
+
+        <!-- =================================================
+             LEFT COLUMN
+             ================================================= -->
+
         <div class="payment-information-column">
+
+
+            <!-- PAYMENT INFORMATION -->
 
             <section class="detail-panel">
 
                 <header class="detail-panel-header">
 
                     <div>
+
                         <div class="eyebrow">
                             PAYMENT INFORMATION
                         </div>
@@ -354,6 +372,7 @@
                         <h2>
                             Logical operation
                         </h2>
+
                     </div>
 
                 </header>
@@ -431,11 +450,14 @@
             </section>
 
 
+            <!-- IDEMPOTENCY -->
+
             <section class="detail-panel">
 
                 <header class="detail-panel-header">
 
                     <div>
+
                         <div class="eyebrow">
                             IDEMPOTENCY
                         </div>
@@ -443,6 +465,7 @@
                         <h2>
                             Request contract
                         </h2>
+
                     </div>
 
                 </header>
@@ -505,13 +528,21 @@
         </div>
 
 
+        <!-- =================================================
+             RIGHT COLUMN
+             ================================================= -->
+
         <div class="payment-information-column">
+
+
+            <!-- WORKER JOB -->
 
             <section class="detail-panel">
 
                 <header class="detail-panel-header">
 
                     <div>
+
                         <div class="eyebrow">
                             EXECUTION INFRASTRUCTURE
                         </div>
@@ -519,12 +550,13 @@
                         <h2>
                             Worker job
                         </h2>
+
                     </div>
 
                 </header>
 
 
-                {% if payment.job %}
+                {% if job %}
 
                 <div class="property-grid">
 
@@ -535,7 +567,7 @@
                         </span>
 
                         <strong class="property-value">
-                            {{ payment.job.get_status_display }}
+                            {{ job.get_status_display }}
                         </strong>
 
                     </div>
@@ -548,7 +580,7 @@
                         </span>
 
                         <strong class="property-value">
-                            {{ payment.job.attempts }}
+                            {{ job.attempts }}
                         </strong>
 
                     </div>
@@ -561,7 +593,7 @@
                         </span>
 
                         <strong class="property-value property-mono">
-                            {{ payment.job.processor_behavior }}
+                            {{ job.processor_behavior }}
                         </strong>
 
                     </div>
@@ -574,11 +606,13 @@
                         </span>
 
                         <strong class="property-value property-mono">
-                            {% if payment.job.processor_operation_id %}
-                                {{ payment.job.processor_operation_id }}
+
+                            {% if job.processor_operation_id %}
+                                {{ job.processor_operation_id }}
                             {% else %}
                                 —
                             {% endif %}
+
                         </strong>
 
                     </div>
@@ -591,11 +625,13 @@
                         </span>
 
                         <strong class="property-value">
-                            {% if payment.job.started_at %}
-                                {{ payment.job.started_at|date:"H:i:s" }}
+
+                            {% if job.started_at %}
+                                {{ job.started_at|date:"H:i:s" }}
                             {% else %}
                                 —
                             {% endif %}
+
                         </strong>
 
                     </div>
@@ -608,11 +644,13 @@
                         </span>
 
                         <strong class="property-value">
-                            {% if payment.job.completed_at %}
-                                {{ payment.job.completed_at|date:"H:i:s" }}
+
+                            {% if job.completed_at %}
+                                {{ job.completed_at|date:"H:i:s" }}
                             {% else %}
                                 —
                             {% endif %}
+
                         </strong>
 
                     </div>
@@ -630,11 +668,14 @@
             </section>
 
 
+            <!-- PROCESSOR ATTEMPTS -->
+
             <section class="detail-panel">
 
                 <header class="detail-panel-header">
 
                     <div>
+
                         <div class="eyebrow">
                             PROCESSOR ATTEMPTS
                         </div>
@@ -642,6 +683,7 @@
                         <h2>
                             Execution history
                         </h2>
+
                     </div>
 
                     <span class="attempts-total">
@@ -659,17 +701,8 @@
 
                         <div class="attempt-marker">
 
-                            <span
-                                class="
-                                {% if attempt.status == 'SUCCESS' %}
-                                    attempt-marker-success
-                                {% elif attempt.status == 'FAILED' %}
-                                    attempt-marker-failed
-                                {% else %}
-                                    attempt-marker-unknown
-                                {% endif %}
-                                "
-                            ></span>
+                            <span class="{% if attempt.status == 'SUCCESS' %}attempt-marker-success{% elif attempt.status == 'FAILED' %}attempt-marker-failed{% else %}attempt-marker-unknown{% endif %}">
+                            </span>
 
                         </div>
 
@@ -682,10 +715,7 @@
                                     Attempt {{ forloop.counter }}
                                 </strong>
 
-                                <span
-                                    class="attempt-status
-                                    attempt-status-{{ attempt.status|lower }}"
-                                >
+                                <span class="attempt-status attempt-status-{{ attempt.status|lower }}">
                                     {{ attempt.status }}
                                 </span>
 
@@ -755,6 +785,10 @@
 
     </section>
 
+
+    <!-- =====================================================
+         FOOTER
+         ===================================================== -->
 
     <footer class="payment-detail-footer">
 

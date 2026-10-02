@@ -1,16 +1,40 @@
 import os
 
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 
 from payments.jobs import enqueue_payment
-from payments.models import Payment, PaymentAttempt, PaymentJob
+from payments.models import (
+    IdempotencyRecord,
+    Payment,
+    PaymentAttempt,
+    PaymentJob,
+)
 from payments.worker import process_next_job
 
 from .services import (
     IdempotencyConflict,
     InvalidPaymentRequest,
     create_or_get_payment,
+    reconcile_payment,
+    retry_payment,
 )
+
+
+def _inline_worker_enabled():
+    return (
+        os.getenv(
+            "LEDGERFLOW_INLINE_WORKER",
+            "false",
+        ).strip().lower()
+        in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+    )
 
 
 def _metrics():
@@ -19,12 +43,24 @@ def _metrics():
     jobs = PaymentJob.objects.all()
 
     total = payments.count()
-    succeeded = payments.filter(status=Payment.Status.SUCCEEDED).count()
-    processing = payments.filter(status=Payment.Status.PROCESSING).count()
-    failed = payments.filter(status=Payment.Status.FAILED).count()
-    created = payments.filter(status=Payment.Status.CREATED).count()
+    succeeded = payments.filter(
+        status=Payment.Status.SUCCEEDED
+    ).count()
+    processing = payments.filter(
+        status=Payment.Status.PROCESSING
+    ).count()
+    failed = payments.filter(
+        status=Payment.Status.FAILED
+    ).count()
+    created = payments.filter(
+        status=Payment.Status.CREATED
+    ).count()
 
-    success_rate = round((succeeded / total) * 100, 1) if total else 0
+    success_rate = (
+        round((succeeded / total) * 100, 1)
+        if total
+        else 0
+    )
 
     unknown_attempts = attempts.filter(
         status=PaymentAttempt.Status.UNKNOWN
@@ -94,25 +130,37 @@ def _metrics():
     attempt_total = attempts.count()
 
     unknown_rate = (
-        round((unknown_attempts / attempt_total) * 100, 1)
+        round(
+            (unknown_attempts / attempt_total) * 100,
+            1,
+        )
         if attempt_total
         else 0
     )
 
     transient_failure_rate = (
-        round((transient_failures / attempt_total) * 100, 1)
+        round(
+            (transient_failures / attempt_total) * 100,
+            1,
+        )
         if attempt_total
         else 0
     )
 
     permanent_failure_rate = (
-        round((permanent_failures / attempt_total) * 100, 1)
+        round(
+            (permanent_failures / attempt_total) * 100,
+            1,
+        )
         if attempt_total
         else 0
     )
 
     recovery_rate = (
-        round((recovered_jobs / completed_jobs) * 100, 1)
+        round(
+            (recovered_jobs / completed_jobs) * 100,
+            1,
+        )
         if completed_jobs
         else 0
     )
@@ -186,27 +234,28 @@ def payments_page(request):
 
 def payment_detail(request, payment_id):
     payment = get_object_or_404(
-        Payment.objects.select_related(
-            "idempotency_record",
-            "job",
-        ),
+        Payment.objects.select_related("idempotency_record"),
         id=payment_id,
     )
 
+    job = PaymentJob.objects.filter(
+        payment=payment,
+    ).first()
+
     attempts = payment.attempts.order_by("created_at")
+
     latest_attempt = attempts.last()
 
     processing_seconds = None
 
     if (
-        payment.job
-        and payment.job.started_at
-        and payment.job.completed_at
+        job
+        and job.started_at
+        and job.completed_at
     ):
         processing_seconds = round(
             (
-                payment.job.completed_at
-                - payment.job.started_at
+                job.completed_at - job.started_at
             ).total_seconds(),
             2,
         )
@@ -216,11 +265,51 @@ def payment_detail(request, payment_id):
         "payment_detail.html",
         {
             "payment": payment,
+            "job": job,
             "attempts": attempts,
             "latest_attempt": latest_attempt,
             "processing_seconds": processing_seconds,
             "metrics": _metrics(),
         },
+    )
+
+
+@require_POST
+def payment_reconcile(request, payment_id):
+    payment = get_object_or_404(
+        Payment.objects.select_related("job"),
+        id=payment_id,
+    )
+
+    reconcile_payment(payment)
+
+    return redirect(
+        "payment-detail",
+        payment_id=payment.id,
+    )
+
+
+@require_POST
+def payment_retry(request, payment_id):
+    payment = get_object_or_404(
+        Payment.objects.select_related("job"),
+        id=payment_id,
+    )
+
+    result = retry_payment(
+        payment,
+        behavior="SUCCESS",
+    )
+
+    if (
+        isinstance(result, PaymentJob)
+        and _inline_worker_enabled()
+    ):
+        process_next_job()
+
+    return redirect(
+        "payment-detail",
+        payment_id=payment.id,
     )
 
 
@@ -251,20 +340,7 @@ def simulator_page(request):
                     processor_behavior=processor_behavior,
                 )
 
-                inline_worker_enabled = (
-                    os.getenv(
-                        "LEDGERFLOW_INLINE_WORKER",
-                        "false",
-                    ).strip().lower()
-                    in {
-                        "1",
-                        "true",
-                        "yes",
-                        "on",
-                    }
-                )
-
-                if inline_worker_enabled:
+                if _inline_worker_enabled():
                     process_next_job()
 
             return redirect(

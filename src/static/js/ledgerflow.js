@@ -361,3 +361,74 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 });
+
+
+document.addEventListener("DOMContentLoaded", () => {
+    const currencyIcons = document.querySelectorAll(
+        ".payment-currency-icon[data-currency]"
+    );
+
+    const currencySymbols = {
+        USD: "$",
+        EUR: "€",
+        GBP: "£",
+        INR: "₹",
+        JPY: "¥",
+        CNY: "¥",
+        KRW: "₩",
+        RUB: "₽",
+        BRL: "R$",
+        CAD: "$",
+        AUD: "$",
+        SGD: "$",
+        HKD: "$",
+        NZD: "$",
+        CHF: "₣",
+        SEK: "kr",
+        NOK: "kr",
+        DKK: "kr",
+        PLN: "zł",
+        TRY: "₺",
+        ZAR: "R",
+        AED: "د",
+        SAR: "﷼",
+        THB: "฿",
+        IDR: "Rp",
+        MYR: "RM",
+        PHP: "₱",
+        VND: "₫",
+    };
+
+    currencyIcons.forEach((icon) => {
+        const currency = icon.dataset.currency
+            ?.trim()
+            .toUpperCase();
+
+        if (!currency) {
+            return;
+        }
+
+        const symbol = currencySymbols[currency] || currency;
+
+        const target = icon.querySelector(
+            ".payment-currency-symbol"
+        );
+
+        if (!target) {
+            return;
+        }
+
+        target.textContent = symbol;
+
+        /*
+         * Three-letter fallback currencies need slightly
+         * smaller typography to remain balanced inside
+         * the circular mark.
+         */
+        if (!currencySymbols[currency]) {
+            target.classList.add(
+                "payment-currency-symbol-code"
+            );
+        }
+    });
+});
